@@ -7,13 +7,19 @@ import requests
 import threading
 import socket
 
+def handler2(method, path, headers, request_body):
+  print 'in handler2'
+  return (601, 'Something', {'X-Header': 'Value'}, 'this is the body')
+
 def default_handler(method, path, headers, request_body):
   print 'in default_handler'
   # returns status_code, status_message, headers (list of key/value pairs), response_body (text or stream)
-  return (201, 'CREATED', {'X-Header': 'Value'}, 'this is the response body')
+  return (200, 'OK', {}, '')
 
 class DeproxyHTTPServer(SocketServer.ThreadingMixIn, HTTPServer):
-  pass
+  def __init__(self, server_address, RequestHandlerClass, request_handler=default_handler):
+    HTTPServer.__init__(self, server_address, RequestHandlerClass)
+    self.request_handler = request_handler
 
 class DeproxyRequestHandler(BaseHTTPRequestHandler):
   def handle_one_request(self):
@@ -50,7 +56,7 @@ class DeproxyRequestHandler(BaseHTTPRequestHandler):
   def method(self):
     print 'in method()'
     self.incoming_request = (self.command, self.path, self.headers, self.rfile)
-    resp = default_handler(method=self.command, path=self.path, headers=self.headers, request_body=self.rfile)
+    resp = self.server.request_handler(method=self.command, path=self.path, headers=self.headers, request_body=self.rfile)
     self.outgoing_response = resp
     response_code = resp[0]
     response_message = resp[1]
@@ -70,7 +76,7 @@ def run():
   port = 8081
   server_address = (server, port)
   print 'Creating receiver'
-  receiver = HTTPServer(server_address, DeproxyRequestHandler)
+  receiver = DeproxyHTTPServer(server_address, DeproxyRequestHandler, request_handler=handler2)
   print 'Creating server thread'
   server_thread = threading.Thread(target=receiver.handle_request)
   server_thread.daemon = True
@@ -83,7 +89,7 @@ def run():
   print 'message: %s' % r.raw.reason
   print 'Headers: '
   for name, value in r.headers.items():
-    print '%s: %s' % (name, value)
+    print '  %s: %s' % (name, value)
   print 'Body:'
   print r.text
   
