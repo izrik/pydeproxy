@@ -83,15 +83,26 @@ def run():
   server_thread.start()
   print 'Thread started'
   print 'sending request'
-  r = requests.request('GET', 'http://%s:%i/abc/123' % (server,port))
-  print 'url: %s' % r.url
-  print 'status code: %s' % r.status_code
-  print 'message: %s' % r.raw.reason
-  print 'Headers: '
-  for name, value in r.headers.items():
-    print '  %s: %s' % (name, value)
-  print 'Body:'
-  print r.text
+  sent_request = requests.request('GET', 'http://%s:%i/abc/123' % (server,port), return_response=False)
+  print 'Sent Request:'
+  print '  method: %s' % sent_request.method
+  print '  url: %s' % sent_request.url
+  print '  headers:'
+  for name, value in sent_request.headers.items():
+    print '    %s: %s' % (name, value)
+  print '  data: %s' % sent_request.data
+  print ''
+  sent_request.send()
+  received_response = sent_request.response
+  print 'Received Response:'
+  print '  url: %s' % received_response.url
+  print '  status code: %s' % received_response.status_code
+  print '  message: %s' % received_response.raw.reason
+  print '  Headers: '
+  for name, value in received_response.headers.items():
+    print '    %s: %s' % (name, value)
+  print '  Body:'
+  print received_response.text
   
 if __name__ == '__main__':
   run()
