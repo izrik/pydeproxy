@@ -22,6 +22,12 @@ class DeproxyHTTPServer(SocketServer.ThreadingMixIn, HTTPServer):
     self.handler_function = handler_function
     HTTPServer.__init__(self, server_address, self.instantiate)
 
+    print 'Creating server thread'
+    server_thread = threading.Thread(target=self.serve_forever)
+    server_thread.daemon = True
+    server_thread.start()
+    print 'Thread started'
+
   def instantiate(self, request, client_address, server):
     print 'in instantiate'
     return DeproxyRequestHandler(request, client_address, server, self.handler_function)
@@ -119,12 +125,6 @@ def run():
 
   print 'Creating receiver'
   receiver = DeproxyHTTPServer(server_address)
-
-  print 'Creating server thread'
-  server_thread = threading.Thread(target=receiver.serve_forever)
-  server_thread.daemon = True
-  server_thread.start()
-  print 'Thread started'
 
   print
   print 'making request'
