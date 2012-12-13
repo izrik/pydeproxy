@@ -17,11 +17,18 @@ def default_handler(method, path, headers, request_body):
   return (200, 'OK', {}, '')
 
 class DeproxyHTTPServer(SocketServer.ThreadingMixIn, HTTPServer):
-  def __init__(self, server_address, RequestHandlerClass, request_handler=default_handler):
+  def __init__(self, server_address, RequestHandlerClass):
+    print 'in DeproxyHTTPServer.__init__'
     HTTPServer.__init__(self, server_address, RequestHandlerClass)
-    self.request_handler = request_handler
+    #self.request_handler = request_handler
 
 class DeproxyRequestHandler(BaseHTTPRequestHandler):
+
+  def __init__(self, request, client_address, server, handler_function):
+    print 'in DeproxyRequestHandler.__init__'
+    self.handler_function = handler_function
+    BaseHTTPRequestHandler.__init__(self, request, client_address, server)
+
   def handle_one_request(self):
     """Handle a single HTTP request.
 
@@ -48,7 +55,7 @@ class DeproxyRequestHandler(BaseHTTPRequestHandler):
 
       self.incoming_request = (self.command, self.path, self.headers, self.rfile)
 
-      resp = self.server.request_handler(method=self.command, path=self.path, headers=self.headers, request_body=self.rfile)
+      resp = (self.handler_function)(self.command, self.path, self.headers, self.rfile)
 
       self.outgoing_response = resp
 
@@ -71,13 +78,24 @@ class DeproxyRequestHandler(BaseHTTPRequestHandler):
       self.close_connection = 1
       return
 
+class RequestHandlerManager:
+
+  def __init__(self, handler_function=default_handler):
+    self.handler_function = handler_function
+
+  def instantiate(self, request, client_address, server):
+    print 'in instantiate'
+    return DeproxyRequestHandler(request, client_address, server, self.handler_function)
+
 def run():
   server = 'localhost'
   port = 8081
   server_address = (server, port)
 
   print 'Creating receiver'
-  receiver = DeproxyHTTPServer(server_address, DeproxyRequestHandler, request_handler=handler2)
+  man = RequestHandlerManager()
+
+  receiver = DeproxyHTTPServer(server_address, man.instantiate)
 
   print 'Creating server thread'
   server_thread = threading.Thread(target=receiver.handle_request)
