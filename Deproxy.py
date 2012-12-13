@@ -45,29 +45,31 @@ class DeproxyRequestHandler(BaseHTTPRequestHandler):
       if not self.parse_request():
         # An error code has been sent, just exit
         return
-      self.method()
+
+      self.incoming_request = (self.command, self.path, self.headers, self.rfile)
+
+      resp = self.server.request_handler(method=self.command, path=self.path, headers=self.headers, request_body=self.rfile)
+
+      self.outgoing_response = resp
+
+      response_code = resp[0]
+      response_message = resp[1]
+      response_headers = resp[2]
+      response_body = resp[3]
+
+      self.send_response(response_code, response_message)
+      for name, value in response_headers.items():
+        self.send_header(name, value)
+      self.end_headers()
+      self.wfile.write(response_body)
+
       self.wfile.flush() #actually send the response if not already done.
+
     except socket.timeout, e:
       #a read or a write timed out.  Discard this connection
       self.log_error("Request timed out: %r", e)
       self.close_connection = 1
       return
-
-  def method(self):
-    print 'in method()'
-    self.incoming_request = (self.command, self.path, self.headers, self.rfile)
-    resp = self.server.request_handler(method=self.command, path=self.path, headers=self.headers, request_body=self.rfile)
-    self.outgoing_response = resp
-    response_code = resp[0]
-    response_message = resp[1]
-    response_headers = resp[2]
-    response_body = resp[3]
-    self.send_response(response_code, response_message)
-    for name, value in response_headers.items():
-      self.send_header(name, value)
-    self.end_headers()
-    self.wfile.write(response_body)
-    
 
 def run():
   server = 'localhost'
