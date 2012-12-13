@@ -121,14 +121,22 @@ def run():
   receiver = DeproxyHTTPServer(server_address)
 
   print 'Creating server thread'
-  server_thread = threading.Thread(target=receiver.handle_request)
+  server_thread = threading.Thread(target=receiver.serve_forever)
   server_thread.daemon = True
   server_thread.start()
   print 'Thread started'
 
+  print
   print 'making request'
   sent_request, received_response = receiver.make_request('http://%s:%i/abc/123' % (server,port), 'GET')
+  print
+  print_request(sent_request, 'Sent Request')
+  print_response(received_response, 'Received Response')
 
+  print
+  print 'making request'
+  sent_request, received_response = receiver.make_request('http://%s:%i/abc/123' % (server,port), 'GET')
+  print
   print_request(sent_request, 'Sent Request')
   print_response(received_response, 'Received Response')
   
