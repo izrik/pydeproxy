@@ -133,6 +133,10 @@ def run():
   print_request(sent_request, 'Sent Request')
   print_response(received_response, 'Received Response')
 
+  print 'handler is %s' % receiver.handler_function
+  receiver.handler_function = handler2
+  print 'handler is %s' % receiver.handler_function
+
   print
   print 'making request'
   sent_request, received_response = receiver.make_request('http://%s:%i/abc/123' % (server,port), 'GET')
