@@ -126,9 +126,13 @@ def run():
   print 'Creating receiver'
   receiver = DeproxyHTTPServer(server_address)
 
+  target = server
+
+  url = 'http://%s:%i/abc/123' % (target, port);
+
   print
   print 'making request'
-  sent_request, received_response = receiver.make_request('http://%s:%i/abc/123' % (server,port), 'GET')
+  sent_request, received_response = receiver.make_request(url, 'GET')
   print
   print_request(sent_request, 'Sent Request')
   print_response(received_response, 'Received Response')
@@ -139,7 +143,7 @@ def run():
 
   print
   print 'making request'
-  sent_request, received_response = receiver.make_request('http://%s:%i/abc/123' % (server,port), 'GET')
+  sent_request, received_response = receiver.make_request(url, 'GET')
   print
   print_request(sent_request, 'Sent Request')
   print_response(received_response, 'Received Response')
