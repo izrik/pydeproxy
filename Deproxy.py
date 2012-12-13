@@ -70,20 +70,23 @@ class DeproxyRequestHandler(BaseHTTPRequestHandler):
     
 
 def run():
-  print('http server is starting...')
-
   server = 'localhost'
   port = 8081
   server_address = (server, port)
+
   print 'Creating receiver'
   receiver = DeproxyHTTPServer(server_address, DeproxyRequestHandler, request_handler=handler2)
+
   print 'Creating server thread'
   server_thread = threading.Thread(target=receiver.handle_request)
   server_thread.daemon = True
   server_thread.start()
   print 'Thread started'
+
   print 'sending request'
+
   sent_request = requests.request('GET', 'http://%s:%i/abc/123' % (server,port), return_response=False)
+
   print 'Sent Request:'
   print '  method: %s' % sent_request.method
   print '  url: %s' % sent_request.url
@@ -92,8 +95,10 @@ def run():
     print '    %s: %s' % (name, value)
   print '  data: %s' % sent_request.data
   print ''
+
   sent_request.send()
   received_response = sent_request.response
+
   print 'Received Response:'
   print '  url: %s' % received_response.url
   print '  status code: %s' % received_response.status_code
