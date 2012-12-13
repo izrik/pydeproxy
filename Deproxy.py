@@ -26,6 +26,13 @@ class DeproxyHTTPServer(SocketServer.ThreadingMixIn, HTTPServer):
     print 'in instantiate'
     return DeproxyRequestHandler(request, client_address, server, self.handler_function)
 
+  def make_request(self, url, method='GET', headers={}, request_body=''):
+    print 'in make_request(%s, %s, %s, %s)' % (url, method, headers, request_body)
+    sent_request = requests.request(method, url, return_response=False, headers=headers, data=request_body)
+    sent_request.send()
+    received_response = sent_request.response
+    return sent_request, received_response
+
 class DeproxyRequestHandler(BaseHTTPRequestHandler):
 
   def __init__(self, request, client_address, server, handler_function):
@@ -82,6 +89,29 @@ class DeproxyRequestHandler(BaseHTTPRequestHandler):
       self.close_connection = 1
       return
 
+def print_request(request, heading=None):
+  if heading:
+    print heading
+  print '  method: %s' % request.method
+  print '  url: %s' % request.url
+  print '  headers:'
+  for name, value in request.headers.items():
+    print '    %s: %s' % (name, value)
+  print '  data: %s' % request.data
+  print ''
+
+def print_response(response, heading=None):
+  if heading:
+    print heading
+  print '  url: %s' % response.url
+  print '  status code: %s' % response.status_code
+  print '  message: %s' % response.raw.reason
+  print '  Headers: '
+  for name, value in response.headers.items():
+    print '    %s: %s' % (name, value)
+  print '  Body:'
+  print response.text
+
 def run():
   server = 'localhost'
   port = 8081
@@ -96,31 +126,11 @@ def run():
   server_thread.start()
   print 'Thread started'
 
-  print 'sending request'
+  print 'making request'
+  sent_request, received_response = receiver.make_request('http://%s:%i/abc/123' % (server,port), 'GET')
 
-  sent_request = requests.request('GET', 'http://%s:%i/abc/123' % (server,port), return_response=False)
-
-  print 'Sent Request:'
-  print '  method: %s' % sent_request.method
-  print '  url: %s' % sent_request.url
-  print '  headers:'
-  for name, value in sent_request.headers.items():
-    print '    %s: %s' % (name, value)
-  print '  data: %s' % sent_request.data
-  print ''
-
-  sent_request.send()
-  received_response = sent_request.response
-
-  print 'Received Response:'
-  print '  url: %s' % received_response.url
-  print '  status code: %s' % received_response.status_code
-  print '  message: %s' % received_response.raw.reason
-  print '  Headers: '
-  for name, value in received_response.headers.items():
-    print '    %s: %s' % (name, value)
-  print '  Body:'
-  print received_response.text
+  print_request(sent_request, 'Sent Request')
+  print_response(received_response, 'Received Response')
   
 if __name__ == '__main__':
   run()
