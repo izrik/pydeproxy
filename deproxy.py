@@ -6,6 +6,13 @@ import os
 import requests
 import threading
 import socket
+import inspect
+import time
+
+def log(s):
+  f = inspect.getouterframes(inspect.currentframe(),1)[1]
+  t = threading.current_thread()
+  print '[%s : %s(%i) : %s : %s (%i)] %s' % (time.ctime(), f[1], f[2], f[3], t.name, t.ident, s)
 
 def handler2(method, path, headers, request_body):
   print 'in handler2'
