@@ -17,10 +17,14 @@ def default_handler(method, path, headers, request_body):
   return (200, 'OK', {}, '')
 
 class DeproxyHTTPServer(SocketServer.ThreadingMixIn, HTTPServer):
-  def __init__(self, server_address, RequestHandlerClass):
+  def __init__(self, server_address, handler_function=default_handler):
     print 'in DeproxyHTTPServer.__init__'
-    HTTPServer.__init__(self, server_address, RequestHandlerClass)
-    #self.request_handler = request_handler
+    self.handler_function = handler_function
+    HTTPServer.__init__(self, server_address, self.instantiate)
+
+  def instantiate(self, request, client_address, server):
+    print 'in instantiate'
+    return DeproxyRequestHandler(request, client_address, server, self.handler_function)
 
 class DeproxyRequestHandler(BaseHTTPRequestHandler):
 
@@ -78,24 +82,13 @@ class DeproxyRequestHandler(BaseHTTPRequestHandler):
       self.close_connection = 1
       return
 
-class RequestHandlerManager:
-
-  def __init__(self, handler_function=default_handler):
-    self.handler_function = handler_function
-
-  def instantiate(self, request, client_address, server):
-    print 'in instantiate'
-    return DeproxyRequestHandler(request, client_address, server, self.handler_function)
-
 def run():
   server = 'localhost'
   port = 8081
   server_address = (server, port)
 
   print 'Creating receiver'
-  man = RequestHandlerManager()
-
-  receiver = DeproxyHTTPServer(server_address, man.instantiate)
+  receiver = DeproxyHTTPServer(server_address)
 
   print 'Creating server thread'
   server_thread = threading.Thread(target=receiver.handle_request)
