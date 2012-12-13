@@ -15,32 +15,32 @@ def log(s):
   print '[%s : %s(%i) : %s : %s (%i)] %s' % (time.ctime(), f[1], f[2], f[3], t.name, t.ident, s)
 
 def handler2(method, path, headers, request_body):
-  print 'in handler2'
+  log('in handler2')
   return (601, 'Something', {'X-Header': 'Value'}, 'this is the body')
 
 def default_handler(method, path, headers, request_body):
-  print 'in default_handler'
+  log('in default_handler')
   # returns status_code, status_message, headers (list of key/value pairs), response_body (text or stream)
   return (200, 'OK', {}, '')
 
 class DeproxyHTTPServer(SocketServer.ThreadingMixIn, HTTPServer):
   def __init__(self, server_address, handler_function=default_handler):
-    print 'in DeproxyHTTPServer.__init__'
+    log('in DeproxyHTTPServer.__init__')
     self.handler_function = handler_function
     HTTPServer.__init__(self, server_address, self.instantiate)
 
-    print 'Creating server thread'
+    log('Creating server thread')
     server_thread = threading.Thread(target=self.serve_forever)
     server_thread.daemon = True
     server_thread.start()
-    print 'Thread started'
+    log('Thread started')
 
   def instantiate(self, request, client_address, server):
-    print 'in instantiate'
+    log('in instantiate')
     return DeproxyRequestHandler(request, client_address, server, self.handler_function)
 
   def make_request(self, url, method='GET', headers={}, request_body=''):
-    print 'in make_request(%s, %s, %s, %s)' % (url, method, headers, request_body)
+    log('in make_request(%s, %s, %s, %s)' % (url, method, headers, request_body))
     sent_request = requests.request(method, url, return_response=False, headers=headers, data=request_body)
     sent_request.send()
     received_response = sent_request.response
@@ -49,7 +49,7 @@ class DeproxyHTTPServer(SocketServer.ThreadingMixIn, HTTPServer):
 class DeproxyRequestHandler(BaseHTTPRequestHandler):
 
   def __init__(self, request, client_address, server, handler_function):
-    print 'in DeproxyRequestHandler.__init__'
+    log('in DeproxyRequestHandler.__init__')
     self.handler_function = handler_function
     BaseHTTPRequestHandler.__init__(self, request, client_address, server)
 
@@ -61,7 +61,7 @@ class DeproxyRequestHandler(BaseHTTPRequestHandler):
     commands such as GET and POST.
 
     """
-    print 'in handle_one_request()'
+    log('in handle_one_request()')
     try:
       self.raw_requestline = self.rfile.readline(65537)
       if len(self.raw_requestline) > 65536:
@@ -130,7 +130,7 @@ def run():
   port = 8081
   server_address = (server, port)
 
-  print 'Creating receiver'
+  log('Creating receiver')
   receiver = DeproxyHTTPServer(server_address)
 
   target = server
@@ -138,18 +138,18 @@ def run():
   url = 'http://%s:%i/abc/123' % (target, port);
 
   print
-  print 'making request'
+  log('making request')
   sent_request, received_response = receiver.make_request(url, 'GET')
   print
   print_request(sent_request, 'Sent Request')
   print_response(received_response, 'Received Response')
 
-  print 'handler is %s' % receiver.handler_function
+  log('handler is %s' % receiver.handler_function)
   receiver.handler_function = handler2
-  print 'handler is %s' % receiver.handler_function
+  log('handler is %s' % receiver.handler_function)
 
   print
-  print 'making request'
+  log('making request')
   sent_request, received_response = receiver.make_request(url, 'GET')
   print
   print_request(sent_request, 'Sent Request')
