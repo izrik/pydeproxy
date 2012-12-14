@@ -31,10 +31,11 @@ def default_handler(request):
 request_id_header_name = 'Request-ID'
 
 class DeproxyHTTPServer(SocketServer.ThreadingMixIn, HTTPServer):
-  def __init__(self, server_address, handler_function=default_handler):
+  def __init__(self, server_address):
     log('in DeproxyHTTPServer.__init__')
-    self.handler_function = handler_function
     HTTPServer.__init__(self, server_address, self.instantiate)
+
+    self.handler_functions = dict()
 
     log('Creating server thread')
     server_thread = threading.Thread(target=self.serve_forever)
@@ -44,16 +45,21 @@ class DeproxyHTTPServer(SocketServer.ThreadingMixIn, HTTPServer):
 
   def instantiate(self, request, client_address, server):
     log('in instantiate')
-    return DeproxyRequestHandler(request, client_address, server, self.handler_function)
+    return DeproxyRequestHandler(request, client_address, server)
 
-  def make_request(self, url, method='GET', headers={}, request_body=''):
+  def make_request(self, url, method='GET', headers={}, request_body='', handler_function=default_handler):
     log('in make_request(%s, %s, %s, %s)' % (url, method, headers, request_body))
 
     request_id = str(uuid.uuid4())
     headers[request_id_header_name] = request_id
+
+    self.handler_functions[request_id] = handler_function
+
     req = requests.request(method, url, return_response=False, headers=headers, data=request_body)
     req.send()
     resp = req.response
+
+    del self.handler_functions[request_id]
 
     sent_request = Request(req.method, req.path_url, req.headers, req.data)
     received_response = Response(resp.status_code, resp.raw.reason, resp.headers, resp.text)
@@ -70,9 +76,8 @@ class DeproxyHTTPServer(SocketServer.ThreadingMixIn, HTTPServer):
 
 class DeproxyRequestHandler(BaseHTTPRequestHandler):
 
-  def __init__(self, request, client_address, server, handler_function):
+  def __init__(self, request, client_address, server):
     log('in DeproxyRequestHandler.__init__')
-    self.handler_function = handler_function
     BaseHTTPRequestHandler.__init__(self, request, client_address, server)
 
   def handle(self):
@@ -105,11 +110,16 @@ class DeproxyRequestHandler(BaseHTTPRequestHandler):
 
       self.incoming_request = Request(self.command, self.path, self.headers, self.rfile)
 
-      resp = self.handler_function(self.incoming_request)
+      handler_function = default_handler
+      if request_id_header_name in self.headers:
+        request_id = self.headers[request_id_header_name]
+	if request_id in self.server.handler_functions:
+          handler_function = self.server.handler_functions[request_id]
+
+      resp = handler_function(self.incoming_request)
 
       if request_id_header_name in self.headers:
-         request_id = self.headers[request_id_header_name]
-         resp.headers[request_id_header_name] = request_id
+        resp.headers[request_id_header_name] = request_id
 
       self.outgoing_response = resp
 
@@ -173,13 +183,9 @@ def run():
   print_request(sent_request, 'Sent Request')
   print_response(received_response, 'Received Response')
 
-  log('handler is %s' % receiver.handler_function)
-  receiver.handler_function = handler2
-  log('handler is %s' % receiver.handler_function)
-
   print
   log('making request')
-  sent_request, received_response = receiver.make_request(url, 'GET')
+  sent_request, received_response = receiver.make_request(url, 'GET', handler_function=handler2)
   print
   print_request(sent_request, 'Sent Request')
   print_response(received_response, 'Received Response')
