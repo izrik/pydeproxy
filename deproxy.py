@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
+import BaseHTTPServer
 import SocketServer
 import os
 import requests
@@ -30,10 +30,10 @@ def default_handler(request):
 
 request_id_header_name = 'Request-ID'
 
-class DeproxyHTTPServer(SocketServer.ThreadingMixIn, HTTPServer):
+class DeproxyHTTPServer(SocketServer.ThreadingMixIn, BaseHTTPServer.HTTPServer):
   def __init__(self, server_address):
     log('in DeproxyHTTPServer.__init__')
-    HTTPServer.__init__(self, server_address, self.instantiate)
+    BaseHTTPServer.HTTPServer.__init__(self, server_address, self.instantiate)
 
     self.handler_functions = dict()
 
@@ -74,15 +74,15 @@ class DeproxyHTTPServer(SocketServer.ThreadingMixIn, HTTPServer):
     log('override process_request')
     SocketServer.ThreadingMixIn.process_request(self, request, client_address)
 
-class DeproxyRequestHandler(BaseHTTPRequestHandler):
+class DeproxyRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
   def __init__(self, request, client_address, server):
     log('in DeproxyRequestHandler.__init__')
-    BaseHTTPRequestHandler.__init__(self, request, client_address, server)
+    BaseHTTPServer.BaseHTTPRequestHandler.__init__(self, request, client_address, server)
 
   def handle(self):
     log('override handle')
-    BaseHTTPRequestHandler.handle(self)
+    BaseHTTPServer.BaseHTTPRequestHandler.handle(self)
 
   def handle_one_request(self):
     """Handle a single HTTP request.
