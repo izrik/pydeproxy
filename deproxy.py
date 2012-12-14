@@ -46,12 +46,24 @@ class DeproxyHTTPServer(SocketServer.ThreadingMixIn, HTTPServer):
     received_response = sent_request.response
     return sent_request, received_response
 
+  def process_request_thread(self, request, client_address):
+    log('override process_request_thread')
+    SocketServer.ThreadingMixIn.process_request_thread(self, request, client_address)
+
+  def process_request(self, request, client_address):
+    log('override process_request')
+    SocketServer.ThreadingMixIn.process_request(self, request, client_address)
+
 class DeproxyRequestHandler(BaseHTTPRequestHandler):
 
   def __init__(self, request, client_address, server, handler_function):
     log('in DeproxyRequestHandler.__init__')
     self.handler_function = handler_function
     BaseHTTPRequestHandler.__init__(self, request, client_address, server)
+
+  def handle(self):
+    log('override handle')
+    BaseHTTPRequestHandler.handle(self)
 
   def handle_one_request(self):
     """Handle a single HTTP request.
