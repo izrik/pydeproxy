@@ -8,20 +8,24 @@ import threading
 import socket
 import inspect
 import time
+import collections
+
+Request = collections.namedtuple('Request', ['method', 'path', 'headers', 'body'])
+Response = collections.namedtuple('Response', ['code', 'message', 'headers', 'body'])
 
 def log(s):
   f = inspect.getouterframes(inspect.currentframe(),1)[1]
   t = threading.current_thread()
   print '[%s : %s(%i) : %s : %s (%i)] %s' % (time.ctime(), f[1], f[2], f[3], t.name, t.ident, s)
 
-def handler2(method, path, headers, request_body):
+def handler2(request):
   log('in handler2')
-  return (601, 'Something', {'X-Header': 'Value'}, 'this is the body')
+  return Response(601, 'Something', {'X-Header': 'Value'}, 'this is the body')
 
-def default_handler(method, path, headers, request_body):
+def default_handler(request):
   log('in default_handler')
-  # returns status_code, status_message, headers (list of key/value pairs), response_body (text or stream)
-  return (200, 'OK', {}, '')
+  # returns a Response, comprised of status_code, status_message, headers (list of key/value pairs), response_body (text or stream)
+  return Response(200, 'OK', {}, '')
 
 class DeproxyHTTPServer(SocketServer.ThreadingMixIn, HTTPServer):
   def __init__(self, server_address, handler_function=default_handler):
@@ -41,9 +45,14 @@ class DeproxyHTTPServer(SocketServer.ThreadingMixIn, HTTPServer):
 
   def make_request(self, url, method='GET', headers={}, request_body=''):
     log('in make_request(%s, %s, %s, %s)' % (url, method, headers, request_body))
-    sent_request = requests.request(method, url, return_response=False, headers=headers, data=request_body)
-    sent_request.send()
-    received_response = sent_request.response
+
+    req = requests.request(method, url, return_response=False, headers=headers, data=request_body)
+    req.send()
+    resp = req.response
+
+    sent_request = Request(req.method, req.path_url, req.headers, req.data)
+    received_response = Response(resp.status_code, resp.raw.reason, resp.headers, resp.text)
+
     return sent_request, received_response
 
   def process_request_thread(self, request, client_address):
@@ -91,7 +100,7 @@ class DeproxyRequestHandler(BaseHTTPRequestHandler):
 
       self.incoming_request = (self.command, self.path, self.headers, self.rfile)
 
-      resp = (self.handler_function)(self.command, self.path, self.headers, self.rfile)
+      resp = self.handler_function(Request(self.command, self.path, self.headers, self.rfile))
 
       self.outgoing_response = resp
 
@@ -118,24 +127,23 @@ def print_request(request, heading=None):
   if heading:
     print heading
   print '  method: %s' % request.method
-  print '  url: %s' % request.url
+  print '  path: %s' % request.path
   print '  headers:'
   for name, value in request.headers.items():
     print '    %s: %s' % (name, value)
-  print '  data: %s' % request.data
+  print '  body: %s' % request.body
   print ''
 
 def print_response(response, heading=None):
   if heading:
     print heading
-  print '  url: %s' % response.url
-  print '  status code: %s' % response.status_code
-  print '  message: %s' % response.raw.reason
+  print '  status code: %s' % response.code
+  print '  message: %s' % response.message
   print '  Headers: '
   for name, value in response.headers.items():
     print '    %s: %s' % (name, value)
   print '  Body:'
-  print response.text
+  print response.body
 
 def run():
   server = 'localhost'
