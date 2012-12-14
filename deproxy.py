@@ -9,6 +9,7 @@ import socket
 import inspect
 import time
 import collections
+import uuid
 
 Request = collections.namedtuple('Request', ['method', 'path', 'headers', 'body'])
 Response = collections.namedtuple('Response', ['code', 'message', 'headers', 'body'])
@@ -26,6 +27,8 @@ def default_handler(request):
   log('in default_handler')
   # returns a Response, comprised of status_code, status_message, headers (list of key/value pairs), response_body (text or stream)
   return Response(200, 'OK', {}, '')
+
+request_id_header_name = 'Request-ID'
 
 class DeproxyHTTPServer(SocketServer.ThreadingMixIn, HTTPServer):
   def __init__(self, server_address, handler_function=default_handler):
@@ -46,6 +49,8 @@ class DeproxyHTTPServer(SocketServer.ThreadingMixIn, HTTPServer):
   def make_request(self, url, method='GET', headers={}, request_body=''):
     log('in make_request(%s, %s, %s, %s)' % (url, method, headers, request_body))
 
+    request_id = str(uuid.uuid4())
+    headers[request_id_header_name] = request_id
     req = requests.request(method, url, return_response=False, headers=headers, data=request_body)
     req.send()
     resp = req.response
@@ -101,6 +106,10 @@ class DeproxyRequestHandler(BaseHTTPRequestHandler):
       self.incoming_request = Request(self.command, self.path, self.headers, self.rfile)
 
       resp = self.handler_function(self.incoming_request)
+
+      if request_id_header_name in self.headers:
+         request_id = self.headers[request_id_header_name]
+         resp.headers[request_id_header_name] = request_id
 
       self.outgoing_response = resp
 
