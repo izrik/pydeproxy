@@ -98,9 +98,9 @@ class DeproxyRequestHandler(BaseHTTPRequestHandler):
         # An error code has been sent, just exit
         return
 
-      self.incoming_request = (self.command, self.path, self.headers, self.rfile)
+      self.incoming_request = Request(self.command, self.path, self.headers, self.rfile)
 
-      resp = self.handler_function(Request(self.command, self.path, self.headers, self.rfile))
+      resp = self.handler_function(self.incoming_request)
 
       self.outgoing_response = resp
 
