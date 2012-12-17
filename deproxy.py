@@ -45,9 +45,12 @@ class MessageChain:
             self.lock.release()
 
 class Deproxy:
-    def __init__(self, server_address):
+    def __init__(self, server_address=None):
         self.message_chains = dict()
-        self.endpoint = DeproxyEndpoint(server_address, self.message_chains)
+        self.endpoint_lock = threading.Lock()
+        self.endpoints = []
+        if server_address:
+            self.add_endpoint(server_address)
 
     def make_request(self, url, method='GET', headers={}, request_body='', handler_function=default_handler):
         log('in make_request(%s, %s, %s, %s)' % (url, method, headers, request_body))
@@ -68,6 +71,16 @@ class Deproxy:
         message_chain.received_response = Response(resp.status_code, resp.raw.reason, resp.headers, resp.text)
 
         return message_chain
+
+    def add_endpoint(self, server_address):
+        endpoint = None
+        self.endpoint_lock.acquire()
+        try:
+            endpoint = DeproxyEndpoint(server_address, self.message_chains)
+            self.endpoints.append(endpoint)
+            return endpoint
+        finally:
+            self.endpoint_lock.release()
 
 
 class DeproxyEndpoint(SocketServer.ThreadingMixIn, BaseHTTPServer.HTTPServer):
@@ -201,10 +214,12 @@ def run():
 
     log('Creating receiver')
     deproxy = Deproxy(server_address)
+    deproxy.add_endpoint((server, port+1))
 
     target = server
 
     url = 'http://%s:%i/abc/123' % (target, port);
+    url2 = 'http://%s:%i/abc/123' % (target, port+1);
 
     print
     log('making request')
@@ -214,7 +229,7 @@ def run():
 
     print
     log('making request')
-    mc = deproxy.make_request(url, 'GET', handler_function=handler2)
+    mc = deproxy.make_request(url2, 'GET', handler_function=handler2)
     print
     print_message_chain(mc)
 
