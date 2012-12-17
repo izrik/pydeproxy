@@ -70,10 +70,12 @@ class Deproxy:
 
         return message_chain
 
-    def add_endpoint(self, server_address):
+    def add_endpoint(self, server_address, name=None):
         endpoint = None
         with self.endpoint_lock:
-            endpoint = DeproxyEndpoint(self, server_address)
+            if name == None:
+                name = 'Endpoint-%i' % len(self._endpoints)
+            endpoint = DeproxyEndpoint(self, server_address, name)
             self._endpoints.append(endpoint)
             return endpoint
 
@@ -94,11 +96,12 @@ class Deproxy:
 
 
 class DeproxyEndpoint(SocketServer.ThreadingMixIn, BaseHTTPServer.HTTPServer):
-    def __init__(self, deproxy, server_address):
+    def __init__(self, deproxy, server_address, name):
         log('in DeproxyHTTPServer.__init__')
         BaseHTTPServer.HTTPServer.__init__(self, server_address, self.instantiate)
 
         self.deproxy = deproxy
+        self.name = name
 
         log('Creating server thread')
         server_thread = threading.Thread(target=self.serve_forever)
@@ -213,6 +216,7 @@ def print_message_chain(mc, heading=None):
         print heading
     print_request(mc.sent_request, 'Sent Request')
     for h in mc.handlings:
+        print 'Endpoint: "%s' % h.endpoint.name
         print_request(h.request, '  Received Request')
         print_response(h.response, '  Sent Response')
     print_response(mc.received_response, 'Received Response')
