@@ -13,6 +13,7 @@ import uuid
 
 Request = collections.namedtuple('Request', ['method', 'path', 'headers', 'body'])
 Response = collections.namedtuple('Response', ['code', 'message', 'headers', 'body'])
+Handling = collections.namedtuple('Handling', ['endpoint', 'request', 'response'])
 
 def log(s):
     f = inspect.getouterframes(inspect.currentframe(),1)[1]
