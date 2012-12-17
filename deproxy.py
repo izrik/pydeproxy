@@ -20,10 +20,6 @@ def log(s):
     t = threading.current_thread()
     print '[%s : %s(%i) : %s : %s (%i)] %s' % (time.ctime(), f[1], f[2], f[3], t.name, t.ident, s)
 
-def handler2(request):
-    log('in handler2')
-    return Response(601, 'Something', {'X-Header': 'Value'}, 'this is the body')
-
 def default_handler(request):
     log('in default_handler')
     # returns a Response, comprised of status_code, status_message, headers (list of key/value pairs), response_body (text or stream)
@@ -102,6 +98,7 @@ class DeproxyEndpoint(SocketServer.ThreadingMixIn, BaseHTTPServer.HTTPServer):
 
         self.deproxy = deproxy
         self.name = name
+        self.address = server_address
 
         log('Creating server thread')
         server_thread = threading.Thread(target=self.serve_forever)
@@ -188,64 +185,3 @@ class DeproxyRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             self.log_error("Request timed out: %r", e)
             self.close_connection = 1
             return
-
-def print_request(request, heading=None):
-    if heading:
-        print heading
-    print '    method: %s' % request.method
-    print '    path: %s' % request.path
-    print '    headers:'
-    for name, value in request.headers.items():
-        print '        %s: %s' % (name, value)
-    print '    body: %s' % request.body
-    print ''
-
-def print_response(response, heading=None):
-    if heading:
-        print heading
-    print '    status code: %s' % response.code
-    print '    message: %s' % response.message
-    print '    Headers: '
-    for name, value in response.headers.items():
-        print '        %s: %s' % (name, value)
-    print '    Body:'
-    print response.body
-
-def print_message_chain(mc, heading=None):
-    if heading:
-        print heading
-    print_request(mc.sent_request, 'Sent Request')
-    for h in mc.handlings:
-        print 'Endpoint: "%s' % h.endpoint.name
-        print_request(h.request, '  Received Request')
-        print_response(h.response, '  Sent Response')
-    print_response(mc.received_response, 'Received Response')
-
-def run():
-    server = 'localhost'
-    port = 8081
-    server_address = (server, port)
-
-    log('Creating receiver')
-    deproxy = Deproxy(server_address)
-    deproxy.add_endpoint((server, port+1))
-
-    target = server
-
-    url = 'http://%s:%i/abc/123' % (target, port);
-    url2 = 'http://%s:%i/abc/123' % (target, port+1);
-
-    print
-    log('making request')
-    mc = deproxy.make_request(url, 'GET')
-    print
-    print_message_chain(mc)
-
-    print
-    log('making request')
-    mc = deproxy.make_request(url2, 'GET', handler_function=handler2)
-    print
-    print_message_chain(mc)
-
-if __name__ == '__main__':
-    run()
