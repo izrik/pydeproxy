@@ -149,16 +149,11 @@ class DeproxyRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             if message_chain != None:
                 message_chain.add_handling(Handling(self.server, incoming_request, outgoing_response))
 
-            response_code = resp[0]
-            response_message = resp[1]
-            response_headers = resp[2]
-            response_body = resp[3]
-
-            self.send_response(response_code, response_message)
-            for name, value in response_headers.items():
+            self.send_response(resp.code, resp.message)
+            for name, value in resp.headers.items():
                 self.send_header(name, value)
             self.end_headers()
-            self.wfile.write(response_body)
+            self.wfile.write(resp.body)
 
             self.wfile.flush() #actually send the response if not already done.
 
