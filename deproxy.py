@@ -30,6 +30,19 @@ def default_handler(request):
 
 request_id_header_name = 'Request-ID'
 
+class MessageChain:
+    def __init__(self, handler_function):
+        self.handler_function = handler_function
+        self.handlings = []
+        self.lock = threading.Lock()
+        
+    def add_handling(self, handling):
+        self.lock.acquire()
+        try:
+            self.handlings.append(handling)
+        finally:
+            self.lock.release()
+
 class Deproxy:
     def __init__(self, server_address):
         self.handler_functions = dict()
