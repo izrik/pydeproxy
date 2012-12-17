@@ -36,7 +36,7 @@ class MessageChain:
         self.handler_function = handler_function
         self.handlings = []
         self.lock = threading.Lock()
-        
+
     def add_handling(self, handling):
         self.lock.acquire()
         try:
@@ -55,7 +55,8 @@ class Deproxy:
         request_id = str(uuid.uuid4())
         headers[request_id_header_name] = request_id
 
-        self.message_chains[request_id] = MessageChain(handler_function)
+        message_chain = MessageChain(handler_function)
+        self.message_chains[request_id] = message_chain
 
         req = requests.request(method, url, return_response=False, headers=headers, data=request_body)
         req.send()
@@ -63,10 +64,10 @@ class Deproxy:
 
         del self.message_chains[request_id]
 
-        sent_request = Request(req.method, req.path_url, req.headers, req.data)
-        received_response = Response(resp.status_code, resp.raw.reason, resp.headers, resp.text)
+        message_chain.sent_request = Request(req.method, req.path_url, req.headers, req.data)
+        message_chain.received_response = Response(resp.status_code, resp.raw.reason, resp.headers, resp.text)
 
-        return sent_request, received_response
+        return message_chain
 
 
 class DeproxyHTTPServer(SocketServer.ThreadingMixIn, BaseHTTPServer.HTTPServer):
@@ -128,20 +129,25 @@ class DeproxyRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                 # An error code has been sent, just exit
                 return
 
-            self.incoming_request = Request(self.command, self.path, self.headers, self.rfile)
+            incoming_request = Request(self.command, self.path, self.headers, self.rfile)
 
             handler_function = default_handler
+            message_chain = None
             if request_id_header_name in self.headers:
                 request_id = self.headers[request_id_header_name]
                 if request_id in self.server.message_chains:
-                    handler_function = self.server.message_chains[request_id].handler_function
+                    message_chain = self.server.message_chains[request_id]
+                    handler_function = message_chain.handler_function
 
-            resp = handler_function(self.incoming_request)
+            resp = handler_function(incoming_request)
 
             if request_id_header_name in self.headers:
                 resp.headers[request_id_header_name] = request_id
 
-            self.outgoing_response = resp
+            outgoing_response = resp
+
+            if message_chain != None:
+                message_chain.add_handling(Handling(self.server, incoming_request, outgoing_response))
 
             response_code = resp[0]
             response_message = resp[1]
@@ -198,17 +204,23 @@ def run():
 
     print
     log('making request')
-    sent_request, received_response = deproxy.make_request(url, 'GET')
+    mc = deproxy.make_request(url, 'GET')
     print
-    print_request(sent_request, 'Sent Request')
-    print_response(received_response, 'Received Response')
+    print_request(mc.sent_request, 'Sent Request')
+    for h in mc.handlings:
+        print_request(h.request, '  Received Request')
+        print_response(h.response, '  Sent Response')
+    print_response(mc.received_response, 'Received Response')
 
     print
     log('making request')
-    sent_request, received_response = deproxy.make_request(url, 'GET', handler_function=handler2)
+    mc = deproxy.make_request(url, 'GET', handler_function=handler2)
     print
-    print_request(sent_request, 'Sent Request')
-    print_response(received_response, 'Received Response')
+    print_request(mc.sent_request, 'Sent Request')
+    for h in mc.handlings:
+        print_request(h.request, '  Received Request')
+        print_response(h.response, '  Sent Response')
+    print_response(mc.received_response, 'Received Response')
 
 if __name__ == '__main__':
     run()
