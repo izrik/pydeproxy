@@ -47,7 +47,7 @@ class MessageChain:
 class Deproxy:
     def __init__(self, server_address):
         self.message_chains = dict()
-        self.endpoint = DeproxyHTTPServer(server_address, self.message_chains)
+        self.endpoint = DeproxyEndpoint(server_address, self.message_chains)
 
     def make_request(self, url, method='GET', headers={}, request_body='', handler_function=default_handler):
         log('in make_request(%s, %s, %s, %s)' % (url, method, headers, request_body))
@@ -70,7 +70,7 @@ class Deproxy:
         return message_chain
 
 
-class DeproxyHTTPServer(SocketServer.ThreadingMixIn, BaseHTTPServer.HTTPServer):
+class DeproxyEndpoint(SocketServer.ThreadingMixIn, BaseHTTPServer.HTTPServer):
     def __init__(self, server_address, message_chains):
         log('in DeproxyHTTPServer.__init__')
         BaseHTTPServer.HTTPServer.__init__(self, server_address, self.instantiate)
