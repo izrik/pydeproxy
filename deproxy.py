@@ -190,6 +190,15 @@ def print_response(response, heading=None):
     print '    Body:'
     print response.body
 
+def print_message_chain(mc, heading=None):
+    if heading:
+        print heading
+    print_request(mc.sent_request, 'Sent Request')
+    for h in mc.handlings:
+        print_request(h.request, '  Received Request')
+        print_response(h.response, '  Sent Response')
+    print_response(mc.received_response, 'Received Response')
+
 def run():
     server = 'localhost'
     port = 8081
@@ -206,21 +215,13 @@ def run():
     log('making request')
     mc = deproxy.make_request(url, 'GET')
     print
-    print_request(mc.sent_request, 'Sent Request')
-    for h in mc.handlings:
-        print_request(h.request, '  Received Request')
-        print_response(h.response, '  Sent Response')
-    print_response(mc.received_response, 'Received Response')
+    print_message_chain(mc)
 
     print
     log('making request')
     mc = deproxy.make_request(url, 'GET', handler_function=handler2)
     print
-    print_request(mc.sent_request, 'Sent Request')
-    for h in mc.handlings:
-        print_request(h.request, '  Received Request')
-        print_response(h.response, '  Sent Response')
-    print_response(mc.received_response, 'Received Response')
+    print_message_chain(mc)
 
 if __name__ == '__main__':
     run()
