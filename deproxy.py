@@ -45,8 +45,8 @@ class MessageChain:
 
 class Deproxy:
     def __init__(self, server_address):
-        self.handler_functions = dict()
-        self.endpoint = DeproxyHTTPServer(server_address, self.handler_functions)
+        self.message_chains = dict()
+        self.endpoint = DeproxyHTTPServer(server_address, self.message_chains)
 
     def make_request(self, url, method='GET', headers={}, request_body='', handler_function=default_handler):
         log('in make_request(%s, %s, %s, %s)' % (url, method, headers, request_body))
@@ -54,13 +54,13 @@ class Deproxy:
         request_id = str(uuid.uuid4())
         headers[request_id_header_name] = request_id
 
-        self.handler_functions[request_id] = handler_function
+        self.message_chains[request_id] = MessageChain(handler_function)
 
         req = requests.request(method, url, return_response=False, headers=headers, data=request_body)
         req.send()
         resp = req.response
 
-        del self.handler_functions[request_id]
+        del self.message_chains[request_id]
 
         sent_request = Request(req.method, req.path_url, req.headers, req.data)
         received_response = Response(resp.status_code, resp.raw.reason, resp.headers, resp.text)
@@ -69,11 +69,11 @@ class Deproxy:
 
 
 class DeproxyHTTPServer(SocketServer.ThreadingMixIn, BaseHTTPServer.HTTPServer):
-    def __init__(self, server_address, handler_functions):
+    def __init__(self, server_address, message_chains):
         log('in DeproxyHTTPServer.__init__')
         BaseHTTPServer.HTTPServer.__init__(self, server_address, self.instantiate)
 
-        self.handler_functions = handler_functions
+        self.message_chains = message_chains
 
         log('Creating server thread')
         server_thread = threading.Thread(target=self.serve_forever)
@@ -132,8 +132,8 @@ class DeproxyRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             handler_function = default_handler
             if request_id_header_name in self.headers:
                 request_id = self.headers[request_id_header_name]
-                if request_id in self.server.handler_functions:
-                    handler_function = self.server.handler_functions[request_id]
+                if request_id in self.server.message_chains:
+                    handler_function = self.server.message_chains[request_id].handler_function
 
             resp = handler_function(self.incoming_request)
 
