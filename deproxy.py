@@ -38,17 +38,15 @@ class MessageChain:
         self.lock = threading.Lock()
 
     def add_handling(self, handling):
-        self.lock.acquire()
-        try:
+        with self.lock:
             self.handlings.append(handling)
-        finally:
-            self.lock.release()
 
 class Deproxy:
     def __init__(self, server_address=None):
-        self.message_chains = dict()
+        self.message_chains_lock = threading.Lock()
+        self._message_chains = dict()
         self.endpoint_lock = threading.Lock()
-        self.endpoints = []
+        self._endpoints = []
         if server_address:
             self.add_endpoint(server_address)
 
@@ -59,13 +57,13 @@ class Deproxy:
         headers[request_id_header_name] = request_id
 
         message_chain = MessageChain(handler_function)
-        self.message_chains[request_id] = message_chain
+        self.add_message_chain(request_id, message_chain)
 
         req = requests.request(method, url, return_response=False, headers=headers, data=request_body)
         req.send()
         resp = req.response
 
-        del self.message_chains[request_id]
+        self.del_message_chain(request_id)
 
         message_chain.sent_request = Request(req.method, req.path_url, req.headers, req.data)
         message_chain.received_response = Response(resp.status_code, resp.raw.reason, resp.headers, resp.text)
@@ -74,21 +72,33 @@ class Deproxy:
 
     def add_endpoint(self, server_address):
         endpoint = None
-        self.endpoint_lock.acquire()
-        try:
-            endpoint = DeproxyEndpoint(server_address, self.message_chains)
-            self.endpoints.append(endpoint)
+        with self.endpoint_lock:
+            endpoint = DeproxyEndpoint(self, server_address)
+            self._endpoints.append(endpoint)
             return endpoint
-        finally:
-            self.endpoint_lock.release()
+
+    def add_message_chain(self, request_id, message_chain):
+        with self.message_chains_lock:
+            self._message_chains[request_id] = message_chain
+
+    def del_message_chain(self, request_id):
+        with self.message_chains_lock:
+            del self._message_chains[request_id]
+
+    def get_message_chain(self, request_id):
+        with self.message_chains_lock:
+            if request_id in self._message_chains:
+                return self._message_chains[request_id]
+            else:
+                return None
 
 
 class DeproxyEndpoint(SocketServer.ThreadingMixIn, BaseHTTPServer.HTTPServer):
-    def __init__(self, server_address, message_chains):
+    def __init__(self, deproxy, server_address):
         log('in DeproxyHTTPServer.__init__')
         BaseHTTPServer.HTTPServer.__init__(self, server_address, self.instantiate)
 
-        self.message_chains = message_chains
+        self.deproxy = deproxy
 
         log('Creating server thread')
         server_thread = threading.Thread(target=self.serve_forever)
@@ -148,8 +158,8 @@ class DeproxyRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             message_chain = None
             if request_id_header_name in self.headers:
                 request_id = self.headers[request_id_header_name]
-                if request_id in self.server.message_chains:
-                    message_chain = self.server.message_chains[request_id]
+                message_chain = self.server.deproxy.get_message_chain(request_id)
+                if message_chain:
                     handler_function = message_chain.handler_function
 
             resp = handler_function(incoming_request)
