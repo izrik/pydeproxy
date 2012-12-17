@@ -30,22 +30,10 @@ def default_handler(request):
 
 request_id_header_name = 'Request-ID'
 
-class DeproxyHTTPServer(SocketServer.ThreadingMixIn, BaseHTTPServer.HTTPServer):
+class Deproxy:
     def __init__(self, server_address):
-        log('in DeproxyHTTPServer.__init__')
-        BaseHTTPServer.HTTPServer.__init__(self, server_address, self.instantiate)
-
         self.handler_functions = dict()
-
-        log('Creating server thread')
-        server_thread = threading.Thread(target=self.serve_forever)
-        server_thread.daemon = True
-        server_thread.start()
-        log('Thread started')
-
-    def instantiate(self, request, client_address, server):
-        log('in instantiate')
-        return DeproxyRequestHandler(request, client_address, server)
+        self.endpoint = DeproxyHTTPServer(server_address, self.handler_functions)
 
     def make_request(self, url, method='GET', headers={}, request_body='', handler_function=default_handler):
         log('in make_request(%s, %s, %s, %s)' % (url, method, headers, request_body))
@@ -65,6 +53,24 @@ class DeproxyHTTPServer(SocketServer.ThreadingMixIn, BaseHTTPServer.HTTPServer):
         received_response = Response(resp.status_code, resp.raw.reason, resp.headers, resp.text)
 
         return sent_request, received_response
+
+
+class DeproxyHTTPServer(SocketServer.ThreadingMixIn, BaseHTTPServer.HTTPServer):
+    def __init__(self, server_address, handler_functions):
+        log('in DeproxyHTTPServer.__init__')
+        BaseHTTPServer.HTTPServer.__init__(self, server_address, self.instantiate)
+
+        self.handler_functions = handler_functions
+
+        log('Creating server thread')
+        server_thread = threading.Thread(target=self.serve_forever)
+        server_thread.daemon = True
+        server_thread.start()
+        log('Thread started')
+
+    def instantiate(self, request, client_address, server):
+        log('in instantiate')
+        return DeproxyRequestHandler(request, client_address, server)
 
     def process_request_thread(self, request, client_address):
         log('override process_request_thread')
@@ -113,7 +119,7 @@ class DeproxyRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             handler_function = default_handler
             if request_id_header_name in self.headers:
                 request_id = self.headers[request_id_header_name]
-	if request_id in self.server.handler_functions:
+                if request_id in self.server.handler_functions:
                     handler_function = self.server.handler_functions[request_id]
 
             resp = handler_function(self.incoming_request)
@@ -170,7 +176,7 @@ def run():
     server_address = (server, port)
 
     log('Creating receiver')
-    receiver = DeproxyHTTPServer(server_address)
+    deproxy = Deproxy(server_address)
 
     target = server
 
@@ -178,14 +184,14 @@ def run():
 
     print
     log('making request')
-    sent_request, received_response = receiver.make_request(url, 'GET')
+    sent_request, received_response = deproxy.make_request(url, 'GET')
     print
     print_request(sent_request, 'Sent Request')
     print_response(received_response, 'Received Response')
 
     print
     log('making request')
-    sent_request, received_response = receiver.make_request(url, 'GET', handler_function=handler2)
+    sent_request, received_response = deproxy.make_request(url, 'GET', handler_function=handler2)
     print
     print_request(sent_request, 'Sent Request')
     print_response(received_response, 'Received Response')
