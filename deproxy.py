@@ -115,8 +115,24 @@ class Deproxy:
 class DeproxyEndpoint:
     def __init__(self, deproxy, server_address, name):
         log('in DeproxyHTTPServer.__init__')
-        self.TCPServer__init__(server_address, self.instantiate)
 
+        # TCPServer init
+        bind_and_activate = True
+
+        # BaseServer init
+        self.server_address = server_address
+        self.RequestHandlerClass = self.instantiate
+        self.__is_shut_down = threading.Event()
+        self.__shutdown_request = False
+
+        # TCPServer init
+        self.socket = socket.socket(self.address_family,
+                                    self.socket_type)
+        if bind_and_activate:
+            self.server_bind()
+            self.server_activate()
+
+        # DeproxyEndpoint init
         self.deproxy = deproxy
         self.name = name
         self.address = server_address
@@ -126,23 +142,6 @@ class DeproxyEndpoint:
         server_thread.daemon = True
         server_thread.start()
         log('Thread started')
-
-    def TCPServer__init__(self, server_address, RequestHandlerClass,
-                          bind_and_activate=True):
-        """Constructor.  May be extended, do not override."""
-        self.BaseServer__init__(server_address, RequestHandlerClass)
-        self.socket = socket.socket(self.address_family,
-                                    self.socket_type)
-        if bind_and_activate:
-            self.server_bind()
-            self.server_activate()
-
-    def BaseServer__init__(self, server_address, RequestHandlerClass):
-        """Constructor.  May be extended, do not override."""
-        self.server_address = server_address
-        self.RequestHandlerClass = RequestHandlerClass
-        self.__is_shut_down = threading.Event()
-        self.__shutdown_request = False
 
     def instantiate(self, request, client_address, server):
         log('in instantiate')
