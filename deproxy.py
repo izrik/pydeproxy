@@ -127,6 +127,23 @@ class DeproxyEndpoint:
         server_thread.start()
         log('Thread started')
 
+    def TCPServer__init__(self, server_address, RequestHandlerClass,
+                          bind_and_activate=True):
+        """Constructor.  May be extended, do not override."""
+        self.BaseServer__init__(server_address, RequestHandlerClass)
+        self.socket = socket.socket(self.address_family,
+                                    self.socket_type)
+        if bind_and_activate:
+            self.server_bind()
+            self.server_activate()
+
+    def BaseServer__init__(self, server_address, RequestHandlerClass):
+        """Constructor.  May be extended, do not override."""
+        self.server_address = server_address
+        self.RequestHandlerClass = RequestHandlerClass
+        self.__is_shut_down = threading.Event()
+        self.__shutdown_request = False
+
     def instantiate(self, request, client_address, server):
         log('in instantiate')
         return DeproxyRequestHandler(request, client_address, server)
@@ -166,26 +183,6 @@ class DeproxyEndpoint:
         self.server_name = socket.getfqdn(host)
         self.server_port = port
 
-    ### TCPServer
-
-    address_family = socket.AF_INET
-
-    socket_type = socket.SOCK_STREAM
-
-    request_queue_size = 5
-
-    TCPServer_allow_reuse_address = False
-
-    def TCPServer__init__(self, server_address, RequestHandlerClass,
-                          bind_and_activate=True):
-        """Constructor.  May be extended, do not override."""
-        self.BaseServer__init__(server_address, RequestHandlerClass)
-        self.socket = socket.socket(self.address_family,
-                                    self.socket_type)
-        if bind_and_activate:
-            self.server_bind()
-            self.server_activate()
-
     def TCPServer_server_bind(self):
         """Called by constructor to bind the socket.
 
@@ -196,6 +193,16 @@ class DeproxyEndpoint:
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.socket.bind(self.server_address)
         self.server_address = self.socket.getsockname()
+
+    ### TCPServer
+
+    address_family = socket.AF_INET
+
+    socket_type = socket.SOCK_STREAM
+
+    request_queue_size = 5
+
+    TCPServer_allow_reuse_address = False
 
     def server_activate(self):
         """Called by constructor to activate the server.
@@ -246,13 +253,6 @@ class DeproxyEndpoint:
     ### BaseServer
 
     timeout = None
-
-    def BaseServer__init__(self, server_address, RequestHandlerClass):
-        """Constructor.  May be extended, do not override."""
-        self.server_address = server_address
-        self.RequestHandlerClass = RequestHandlerClass
-        self.__is_shut_down = threading.Event()
-        self.__shutdown_request = False
 
     def serve_forever(self, poll_interval=0.5):
         """Handle one request at a time until shutdown.
