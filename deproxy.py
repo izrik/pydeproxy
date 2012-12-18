@@ -421,8 +421,21 @@ class DeproxyRequestHandler:
 
     def send_response2(self, wfile, response):
         self.send_response(wfile, response.code, response.message)
+
+        hs = {}
+
         for name, value in response.headers.items():
+            name_lower = name.lower()
+            hs[name_lower] = value
+
+        if 'server' not in hs:
+            hs['server'] = self.version_string()
+        if 'date' not in hs:
+            hs['date'] = self.date_time_string()
+
+        for name, value in hs.iteritems():
             self.send_header(wfile, name, value)
+
         self.end_headers(wfile)
         wfile.write(response.body)
 
@@ -441,9 +454,6 @@ class DeproxyRequestHandler:
         if self.request_version != 'HTTP/0.9':
             wfile.write("%s %d %s\r\n" %
                              (self.protocol_version, code, message))
-            # print (self.protocol_version, code, message)
-        self.send_header(wfile, 'Server', self.version_string())
-        self.send_header(wfile, 'Date', self.date_time_string())
 
     def send_header(self, wfile, keyword, value):
         """Send a MIME header."""
