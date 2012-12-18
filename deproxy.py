@@ -176,22 +176,15 @@ class DeproxyEndpoint:
     allow_reuse_address = 1    # Seems to make sense in testing environment
 
     def server_bind(self):
-        """Override server_bind to store the server name."""
-        self.TCPServer_server_bind()
-        host, port = self.socket.getsockname()[:2]
-        self.server_name = socket.getfqdn(host)
-        self.server_port = port
-
-    def TCPServer_server_bind(self):
-        """Called by constructor to bind the socket.
-
-        May be overridden.
-
-        """
+        #self.TCPServer_server_bind()
         if self.allow_reuse_address:
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.socket.bind(self.server_address)
         self.server_address = self.socket.getsockname()
+
+        host, port = self.socket.getsockname()[:2]
+        self.server_name = socket.getfqdn(host)
+        self.server_port = port
 
     ### TCPServer
 
