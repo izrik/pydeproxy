@@ -241,14 +241,14 @@ class DeproxyRequestHandler:
         self.client_address = client_address
         self.server = server
 
-        self.connection = request
+        connection = request
         if self.timeout is not None:
-            self.connection.settimeout(self.timeout)
+            connection.settimeout(self.timeout)
         if self.disable_nagle_algorithm:
-            self.connection.setsockopt(socket.IPPROTO_TCP,
+            connection.setsockopt(socket.IPPROTO_TCP,
                                        socket.TCP_NODELAY, True)
-        rfile = self.connection.makefile('rb', self.rbufsize)
-        wfile = self.connection.makefile('wb', self.wbufsize)
+        rfile = connection.makefile('rb', self.rbufsize)
+        wfile = connection.makefile('wb', self.wbufsize)
 
         try:
             self.close_connection = 1
