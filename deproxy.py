@@ -249,14 +249,41 @@ class DeproxyRequestHandler:
         log('in DeproxyRequestHandler.__init__')
         self.BaseRequestHandler__init__(request, client_address, server)
 
+    def BaseRequestHandler__init__(self, request, client_address, server):
+        self.request = request
+        self.client_address = client_address
+        self.server = server
+        self.setup()
+        try:
+            self.handle()
+        finally:
+            self.finish()
+
+    def finish(self):
+        if not self.wfile.closed:
+            self.wfile.flush()
+        self.wfile.close()
+        self.rfile.close()
+
+    def setup(self):
+        self.connection = self.request
+        if self.timeout is not None:
+            self.connection.settimeout(self.timeout)
+        if self.disable_nagle_algorithm:
+            self.connection.setsockopt(socket.IPPROTO_TCP,
+                                       socket.TCP_NODELAY, True)
+        self.rfile = self.connection.makefile('rb', self.rbufsize)
+        self.wfile = self.connection.makefile('wb', self.wbufsize)
+
+    def handle(self):
+        """Handle multiple requests if necessary."""
+        self.close_connection = 1
+
+        self.handle_one_request()
+        while not self.close_connection:
+            self.handle_one_request()
+
     def handle_one_request(self):
-        """Handle a single HTTP request.
-
-        You normally don't need to override this method; see the class
-        __doc__ string for information on how to handle specific HTTP
-        commands such as GET and POST.
-
-        """
         log('in handle_one_request()')
         try:
             self.raw_requestline = self.rfile.readline(65537)
@@ -310,22 +337,6 @@ class DeproxyRequestHandler:
             self.log_error("Request timed out: %r", e)
             self.close_connection = 1
             return
-
-    ### BaseHTTPRequestHandler
-
-    # The Python system version, truncated to its first component.
-    sys_version = "Python/" + sys.version.split()[0]
-
-    # The server software version.  You may want to override this.
-    # The format is multiple whitespace-separated strings,
-    # where each string is of the form name[/version].
-    server_version = "Deproxy/0.1"
-
-    # The default request version.  This only affects responses up until
-    # the point where the request line is parsed, so it mainly decides what
-    # the client gets back when sending a malformed request line.
-    # Most web servers default to HTTP 0.9, i.e. don't send a status line.
-    default_request_version = "HTTP/0.9"
 
     def parse_request(self):
         """Parse a request (internal).
@@ -399,14 +410,6 @@ class DeproxyRequestHandler:
             self.close_connection = 0
         return True
 
-    def handle(self):
-        """Handle multiple requests if necessary."""
-        self.close_connection = 1
-
-        self.handle_one_request()
-        while not self.close_connection:
-            self.handle_one_request()
-
     def send_error(self, code, message=None):
         """Send and log an error reply.
 
@@ -438,23 +441,6 @@ class DeproxyRequestHandler:
         self.end_headers()
         if self.command != 'HEAD' and code >= 200 and code not in (204, 304):
             self.wfile.write(content)
-
-    DEFAULT_ERROR_MESSAGE = """\
-<head>
-<title>Error response</title>
-</head>
-<body>
-<h1>Error response</h1>
-<p>Error code %(code)d.
-<p>Message: %(message)s.
-<p>Error code explanation: %(code)s = %(explain)s.
-</body>
-"""
-
-    DEFAULT_ERROR_CONTENT_TYPE = "text/html"
-
-    error_message_format = DEFAULT_ERROR_MESSAGE
-    error_content_type = DEFAULT_ERROR_CONTENT_TYPE
 
     def send_response(self, code, message=None):
         """Send the response header and log the response code.
@@ -561,12 +547,6 @@ class DeproxyRequestHandler:
                 day, self.monthname[month], year, hh, mm, ss)
         return s
 
-    weekdayname = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-
-    monthname = [None,
-                 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-
     def address_string(self):
         """Return the client address formatted for logging.
 
@@ -577,6 +557,43 @@ class DeproxyRequestHandler:
 
         host, port = self.client_address[:2]
         return socket.getfqdn(host)
+
+    # The Python system version, truncated to its first component.
+    sys_version = "Python/" + sys.version.split()[0]
+
+    # The server software version.  You may want to override this.
+    # The format is multiple whitespace-separated strings,
+    # where each string is of the form name[/version].
+    server_version = "Deproxy/0.1"
+
+    # The default request version.  This only affects responses up until
+    # the point where the request line is parsed, so it mainly decides what
+    # the client gets back when sending a malformed request line.
+    # Most web servers default to HTTP 0.9, i.e. don't send a status line.
+    default_request_version = "HTTP/0.9"
+
+    DEFAULT_ERROR_MESSAGE = """\
+<head>
+<title>Error response</title>
+</head>
+<body>
+<h1>Error response</h1>
+<p>Error code %(code)d.
+<p>Message: %(message)s.
+<p>Error code explanation: %(code)s = %(explain)s.
+</body>
+"""
+
+    DEFAULT_ERROR_CONTENT_TYPE = "text/html"
+
+    error_message_format = DEFAULT_ERROR_MESSAGE
+    error_content_type = DEFAULT_ERROR_CONTENT_TYPE
+
+    weekdayname = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+    monthname = [None,
+                 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
     # Essentially static class variables
 
@@ -656,7 +673,6 @@ class DeproxyRequestHandler:
         505: ('HTTP Version Not Supported', 'Cannot fulfill request.'),
         }
 
-    ### StreamRequestHandler
 
     """Define self.rfile and self.wfile for stream sockets."""
 
@@ -677,30 +693,4 @@ class DeproxyRequestHandler:
     # Use only when wbufsize != 0, to avoid small packets.
     disable_nagle_algorithm = False
 
-    def setup(self):
-        self.connection = self.request
-        if self.timeout is not None:
-            self.connection.settimeout(self.timeout)
-        if self.disable_nagle_algorithm:
-            self.connection.setsockopt(socket.IPPROTO_TCP,
-                                       socket.TCP_NODELAY, True)
-        self.rfile = self.connection.makefile('rb', self.rbufsize)
-        self.wfile = self.connection.makefile('wb', self.wbufsize)
 
-    def finish(self):
-        if not self.wfile.closed:
-            self.wfile.flush()
-        self.wfile.close()
-        self.rfile.close()
-
-    ### BaseRequestHandler
-
-    def BaseRequestHandler__init__(self, request, client_address, server):
-        self.request = request
-        self.client_address = client_address
-        self.server = server
-        self.setup()
-        try:
-            self.handle()
-        finally:
-            self.finish()
