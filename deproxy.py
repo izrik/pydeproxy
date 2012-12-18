@@ -215,14 +215,6 @@ class DeproxyEndpoint:
         """
         return self.socket.fileno()
 
-    def get_request(self):
-        """Get the request and client address from the socket.
-
-        May be overridden.
-
-        """
-        return self.socket.accept()
-
     def shutdown_request(self, request):
         """Called to shutdown and close an individual request."""
         try:
@@ -287,7 +279,7 @@ class DeproxyEndpoint:
         no risk of blocking in get_request().
         """
         try:
-            request, client_address = self.get_request()
+            request, client_address = self.socket.accept()
         except socket.error:
             return
 
