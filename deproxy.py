@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 
-import BaseHTTPServer
-import SocketServer
 import requests
 import threading
 import socket
