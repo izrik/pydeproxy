@@ -2,7 +2,6 @@
 
 import BaseHTTPServer
 import SocketServer
-import os
 import requests
 import threading
 import socket
