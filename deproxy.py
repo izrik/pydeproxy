@@ -298,7 +298,7 @@ class DeproxyRequestHandler:
                                                     incoming_request,
                                                     outgoing_response))
 
-            self.send_response2(wfile, resp)
+            self.send_response(wfile, resp)
 
             wfile.flush()
 
@@ -417,9 +417,9 @@ class DeproxyRequestHandler:
 
         response = Response(code, message, headers, content)
 
-        self.send_response2(response)
+        self.send_response(response)
 
-    def send_response2(self, wfile, response):
+    def send_response(self, wfile, response):
         message = response.message
         if message is None:
             if response.code in self.responses:
