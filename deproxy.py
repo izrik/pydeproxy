@@ -238,11 +238,10 @@ class DeproxyEndpoint:
 class DeproxyRequestHandler:
 
     def __init__(self, request, client_address, server):
-        self.request = request
         self.client_address = client_address
         self.server = server
 
-        self.connection = self.request
+        self.connection = request
         if self.timeout is not None:
             self.connection.settimeout(self.timeout)
         if self.disable_nagle_algorithm:
