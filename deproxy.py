@@ -125,7 +125,7 @@ class DeproxyEndpoint:
         self.socket = socket.socket(self.address_family,
                                     self.socket_type)
         self.server_bind()
-        self.server_activate()
+        self.socket.listen(self.request_queue_size)
 
         # DeproxyEndpoint init
         self.deproxy = deproxy
@@ -190,14 +190,6 @@ class DeproxyEndpoint:
     request_queue_size = 5
 
     TCPServer_allow_reuse_address = False
-
-    def server_activate(self):
-        """Called by constructor to activate the server.
-
-        May be overridden.
-
-        """
-        self.socket.listen(self.request_queue_size)
 
     def server_close(self):
         """Called to clean-up the server.
