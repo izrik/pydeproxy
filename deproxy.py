@@ -147,10 +147,6 @@ class DeproxyEndpoint:
         server_thread.start()
         log('Thread started')
 
-    def instantiate(self, request, client_address, server):
-        log('in instantiate')
-        return DeproxyRequestHandler(request, client_address, server)
-
     ### ThreadingMixIn
     daemon_threads = False
 
@@ -161,7 +157,7 @@ class DeproxyEndpoint:
 
         """
         try:
-            self.instantiate(request, client_address, self)
+            DeproxyRequestHandler(request, client_address, self)
         except:
             self.handle_error(request, client_address)
         finally:
