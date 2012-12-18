@@ -406,12 +406,18 @@ class DeproxyRequestHandler:
         content = (self.error_message_format %
                    {'code': code, 'message': _quote_html(message),
                     'explain': explain})
-        self.send_response(wfile, code, message)
-        self.send_header(wfile, "Content-Type", self.error_content_type)
-        self.send_header(wfile, 'Connection', 'close')
-        self.end_headers(wfile)
-        if self.command != 'HEAD' and code >= 200 and code not in (204, 304):
-            wfile.write(content)
+
+        headers = {
+            'Content-Type': self.error_content_type,
+            'Connection': 'close',
+            }
+
+        if self.command == 'HEAD' or code < 200 or code in (204, 304):
+            content = ''
+
+        response = Response(code, message, headers, content)
+
+        self.send_response2(response)
 
     def send_response2(self, wfile, response):
         self.send_response(wfile, response.code, response.message)
