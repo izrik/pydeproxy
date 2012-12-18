@@ -294,20 +294,12 @@ class DeproxyEndpoint:
             request, client_address = self.get_request()
         except socket.error:
             return
-        if self.verify_request(request, client_address):
-            try:
-                self.process_request(request, client_address)
-            except:
-                self.handle_error(request, client_address)
-                self.shutdown_request(request)
 
-    def verify_request(self, request, client_address):
-        """Verify the request.  May be overridden.
-
-        Return True if we should proceed with this request.
-
-        """
-        return True
+        try:
+            self.process_request(request, client_address)
+        except:
+            self.handle_error(request, client_address)
+            self.shutdown_request(request)
 
     def handle_error(self, request, client_address):
         """Handle an error gracefully.  May be overridden.
