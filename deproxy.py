@@ -248,23 +248,23 @@ class DeproxyRequestHandler:
         if self.disable_nagle_algorithm:
             self.connection.setsockopt(socket.IPPROTO_TCP,
                                        socket.TCP_NODELAY, True)
-        self.rfile = self.connection.makefile('rb', self.rbufsize)
+        rfile = self.connection.makefile('rb', self.rbufsize)
         self.wfile = self.connection.makefile('wb', self.wbufsize)
 
         try:
             self.close_connection = 1
-            self.handle_one_request()
+            self.handle_one_request(rfile)
             while not self.close_connection:
-                self.handle_one_request()
+                self.handle_one_request(rfile)
         finally:
             if not self.wfile.closed:
                 self.wfile.flush()
             self.wfile.close()
-            self.rfile.close()
+            rfile.close()
 
-    def handle_one_request(self):
+    def handle_one_request(self, rfile):
         try:
-            self.raw_requestline = self.rfile.readline(65537)
+            self.raw_requestline = rfile.readline(65537)
             if len(self.raw_requestline) > 65536:
                 self.requestline = ''
                 self.request_version = ''
@@ -274,12 +274,12 @@ class DeproxyRequestHandler:
             if not self.raw_requestline:
                 self.close_connection = 1
                 return
-            if not self.parse_request():
+            if not self.parse_request(rfile):
                 # An error code has been sent, just exit
                 return
 
             incoming_request = Request(self.command, self.path, self.headers,
-                                       self.rfile)
+                                       rfile)
 
             handler_function = default_handler
             message_chain = None
@@ -315,7 +315,7 @@ class DeproxyRequestHandler:
             self.close_connection = 1
             return
 
-    def parse_request(self):
+    def parse_request(self, rfile):
         """Parse a request (internal).
 
         The request should be stored in self.raw_requestline; the results
@@ -378,7 +378,7 @@ class DeproxyRequestHandler:
         self.command, self.path, self.request_version = command, path, version
 
         # Examine the headers and look for a Connection directive
-        self.headers = self.MessageClass(self.rfile, 0)
+        self.headers = self.MessageClass(rfile, 0)
 
         conntype = self.headers.get('Connection', "")
         if conntype.lower() == 'close':
