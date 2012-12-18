@@ -333,7 +333,8 @@ class DeproxyRequestHandler:
         if len(words) == 3:
             [command, path, version] = words
             if version[:5] != 'HTTP/':
-                self.send_error(wfile, 400, "Bad request version (%r)" % version)
+                self.send_error(wfile, 400, "Bad request version (%r)" %
+                                version)
                 return False
             try:
                 base_version_number = version.split('/', 1)[1]
@@ -348,7 +349,8 @@ class DeproxyRequestHandler:
                     raise ValueError
                 version_number = int(version_number[0]), int(version_number[1])
             except (ValueError, IndexError):
-                self.send_error(wfile, 400, "Bad request version (%r)" % version)
+                self.send_error(wfile, 400, "Bad request version (%r)" %
+                                version)
                 return False
             if (version_number >= (1, 1) and
                     self.protocol_version >= "HTTP/1.1"):
@@ -367,7 +369,8 @@ class DeproxyRequestHandler:
         elif not words:
             return False
         else:
-            self.send_error(wfile, 400, "Bad request syntax (%r)" % requestline)
+            self.send_error(wfile, 400, "Bad request syntax (%r)" %
+                            requestline)
             return False
         self.command, self.path, self.request_version = command, path, version
 
