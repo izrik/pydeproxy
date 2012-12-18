@@ -162,9 +162,9 @@ class DeproxyEndpoint:
         """
         try:
             self.instantiate(request, client_address, self)
-            self.shutdown_request(request)
         except:
             self.handle_error(request, client_address)
+        finally:
             self.shutdown_request(request)
 
     ### HTTPServer
