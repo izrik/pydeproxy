@@ -167,14 +167,6 @@ class DeproxyEndpoint:
             self.handle_error(request, client_address)
             self.shutdown_request(request)
 
-    def process_request(self, request, client_address):
-        """Start a new thread to process the request."""
-        t = threading.Thread(target=self.process_request_thread,
-                             args=(request, client_address))
-        if self.daemon_threads:
-            t.setDaemon(1)
-        t.start()
-
     ### HTTPServer
 
     allow_reuse_address = 1    # Seems to make sense in testing environment
@@ -266,7 +258,12 @@ class DeproxyEndpoint:
             return
 
         try:
-            self.process_request(request, client_address)
+            t = threading.Thread(target=self.process_request_thread,
+                                 args=(request, client_address))
+            if self.daemon_threads:
+                t.setDaemon(1)
+            t.start()
+
         except:
             self.handle_error(request, client_address)
             self.shutdown_request(request)
