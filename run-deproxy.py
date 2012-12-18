@@ -33,7 +33,7 @@ def print_message_chain(mc, heading=None):
         print heading
     print_request(mc.sent_request, 'Sent Request')
     for h in mc.handlings:
-        print 'Endpoint: "%s' % h.endpoint.name
+        print 'Endpoint: "%s (%s:%i)' % (h.endpoint.name, h.endpoint.address[0], h.endpoint.address[1])
         print_request(h.request, '  Received Request')
         print_response(h.response, '  Sent Response')
     print_response(mc.received_response, 'Received Response')
@@ -61,6 +61,12 @@ def run():
     print
     deproxy.log('making request')
     mc = d.make_request(url2, 'GET', handler_function=handler2)
+    print
+    print_message_chain(mc)
+
+    print
+    deproxy.log('making request')
+    mc = d.make_request(url2, 'GET', handler_function=deproxy.echo_handler)
     print
     print_message_chain(mc)
 

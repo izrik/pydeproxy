@@ -25,6 +25,10 @@ def default_handler(request):
     # returns a Response, comprised of status_code, status_message, headers (list of key/value pairs), response_body (text or stream)
     return Response(200, 'OK', {}, '')
 
+def echo_handler(request):
+    log('in echo_handler')
+    return Response(200, 'OK', request.headers, request.body)
+
 request_id_header_name = 'Request-ID'
 
 class MessageChain:
