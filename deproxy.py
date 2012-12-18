@@ -379,7 +379,8 @@ class DeproxyRequestHandler:
         elif (conntype.lower() == 'keep-alive' and
               self.protocol_version >= "HTTP/1.1"):
             self.close_connection = 0
-        return True
+        return Request(self.command, self.path, self.headers,
+                                       rfile)
 
     def send_error(self, wfile, code, message=None):
         """Send and log an error reply.
