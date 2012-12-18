@@ -191,14 +191,6 @@ class DeproxyEndpoint:
 
     TCPServer_allow_reuse_address = False
 
-    def server_close(self):
-        """Called to clean-up the server.
-
-        May be overridden.
-
-        """
-        self.socket.close()
-
     def fileno(self):
         """Return socket file number.
 
