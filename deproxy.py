@@ -230,17 +230,6 @@ class DeproxyEndpoint:
         self.__shutdown_request = True
         self.__is_shut_down.wait()
 
-    # The distinction between handling, getting, processing and
-    # finishing a request is fairly arbitrary.  Remember:
-    #
-    # - handle_request() is the top-level call.  It calls
-    #   select, get_request(), verify_request() and process_request()
-    # - get_request() is different for stream or datagram sockets
-    # - process_request() is the place that may fork a new process
-    #   or create a new thread to finish the request
-    # - finish_request() instantiates the request handler class;
-    #   this constructor will handle the request all by itself
-
     def _handle_request_noblock(self):
         """Handle one request, without blocking.
 
