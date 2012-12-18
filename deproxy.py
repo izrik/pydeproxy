@@ -242,8 +242,6 @@ class DeproxyRequestHandler:
         self.server = server
 
         connection = request
-        if self.timeout is not None:
-            connection.settimeout(self.timeout)
         if self.disable_nagle_algorithm:
             connection.setsockopt(socket.IPPROTO_TCP,
                                        socket.TCP_NODELAY, True)
@@ -592,9 +590,6 @@ class DeproxyRequestHandler:
     # aren't.
     rbufsize = -1
     wbufsize = 0
-
-    # A timeout to apply to the request socket, if not None.
-    timeout = None
 
     # Disable nagle algoritm for this socket, if True.
     # Use only when wbufsize != 0, to avoid small packets.
