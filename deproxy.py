@@ -260,20 +260,15 @@ class DeproxyRequestHandler:
         self.wfile = self.connection.makefile('wb', self.wbufsize)
 
         try:
-            self.handle()
+            self.close_connection = 1
+            self.handle_one_request()
+            while not self.close_connection:
+                self.handle_one_request()
         finally:
             if not self.wfile.closed:
                 self.wfile.flush()
             self.wfile.close()
             self.rfile.close()
-
-    def handle(self):
-        """Handle multiple requests if necessary."""
-        self.close_connection = 1
-
-        self.handle_one_request()
-        while not self.close_connection:
-            self.handle_one_request()
 
     def handle_one_request(self):
         log('in handle_one_request()')
