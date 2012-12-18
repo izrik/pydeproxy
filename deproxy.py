@@ -116,21 +116,16 @@ class DeproxyEndpoint:
     def __init__(self, deproxy, server_address, name):
         log('in DeproxyHTTPServer.__init__')
 
-        # TCPServer init
-        bind_and_activate = True
-
         # BaseServer init
         self.server_address = server_address
-        self.RequestHandlerClass = self.instantiate
         self.__is_shut_down = threading.Event()
         self.__shutdown_request = False
 
         # TCPServer init
         self.socket = socket.socket(self.address_family,
                                     self.socket_type)
-        if bind_and_activate:
-            self.server_bind()
-            self.server_activate()
+        self.server_bind()
+        self.server_activate()
 
         # DeproxyEndpoint init
         self.deproxy = deproxy
@@ -340,8 +335,7 @@ class DeproxyEndpoint:
         return True
 
     def finish_request(self, request, client_address):
-        """Finish one request by instantiating RequestHandlerClass."""
-        self.RequestHandlerClass(request, client_address, self)
+        self.instantiate(request, client_address, self)
 
     def handle_error(self, request, client_address):
         """Handle an error gracefully.  May be overridden.
