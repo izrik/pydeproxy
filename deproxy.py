@@ -11,25 +11,34 @@ import time
 import collections
 import uuid
 
-Request = collections.namedtuple('Request', ['method', 'path', 'headers', 'body'])
-Response = collections.namedtuple('Response', ['code', 'message', 'headers', 'body'])
-Handling = collections.namedtuple('Handling', ['endpoint', 'request', 'response'])
+Request = collections.namedtuple('Request', ['method', 'path', 'headers',
+                                             'body'])
+Response = collections.namedtuple('Response', ['code', 'message', 'headers',
+                                               'body'])
+Handling = collections.namedtuple('Handling', ['endpoint', 'request',
+                                               'response'])
+
 
 def log(s):
-    f = inspect.getouterframes(inspect.currentframe(),1)[1]
+    f = inspect.getouterframes(inspect.currentframe(), 1)[1]
     t = threading.current_thread()
-    print '[%s : %s(%i) : %s : %s (%i)] %s' % (time.ctime(), f[1], f[2], f[3], t.name, t.ident, s)
+    print '[%s : %s(%i) : %s : %s (%i)] %s' % (time.ctime(), f[1], f[2], f[3],
+                                               t.name, t.ident, s)
+
 
 def default_handler(request):
     log('in default_handler')
-    # returns a Response, comprised of status_code, status_message, headers (list of key/value pairs), response_body (text or stream)
+    # returns a Response, comprised of status_code, status_message,
+    # headers (list of key/value pairs), response_body (text or stream)
     return Response(200, 'OK', {}, '')
+
 
 def echo_handler(request):
     log('in echo_handler')
     return Response(200, 'OK', request.headers, request.body)
 
 request_id_header_name = 'Request-ID'
+
 
 class MessageChain:
     def __init__(self, handler_function):
@@ -41,6 +50,7 @@ class MessageChain:
         with self.lock:
             self.handlings.append(handling)
 
+
 class Deproxy:
     def __init__(self, server_address=None):
         self.message_chains_lock = threading.Lock()
@@ -50,8 +60,10 @@ class Deproxy:
         if server_address:
             self.add_endpoint(server_address)
 
-    def make_request(self, url, method='GET', headers={}, request_body='', handler_function=default_handler):
-        log('in make_request(%s, %s, %s, %s)' % (url, method, headers, request_body))
+    def make_request(self, url, method='GET', headers={}, request_body='',
+                     handler_function=default_handler):
+        log('in make_request(%s, %s, %s, %s)' % (url, method, headers,
+                                                 request_body))
 
         request_id = str(uuid.uuid4())
         headers[request_id_header_name] = request_id
@@ -59,21 +71,26 @@ class Deproxy:
         message_chain = MessageChain(handler_function)
         self.add_message_chain(request_id, message_chain)
 
-        req = requests.request(method, url, return_response=False, headers=headers, data=request_body)
+        req = requests.request(method, url, return_response=False,
+                               headers=headers, data=request_body)
         req.send()
         resp = req.response
 
         self.del_message_chain(request_id)
 
-        message_chain.sent_request = Request(req.method, req.path_url, req.headers, req.data)
-        message_chain.received_response = Response(resp.status_code, resp.raw.reason, resp.headers, resp.text)
+        message_chain.sent_request = Request(req.method, req.path_url,
+                                             req.headers, req.data)
+        message_chain.received_response = Response(resp.status_code,
+                                                   resp.raw.reason,
+                                                   resp.headers,
+                                                   resp.text)
 
         return message_chain
 
     def add_endpoint(self, server_address, name=None):
         endpoint = None
         with self.endpoint_lock:
-            if name == None:
+            if name is None:
                 name = 'Endpoint-%i' % len(self._endpoints)
             endpoint = DeproxyEndpoint(self, server_address, name)
             self._endpoints.append(endpoint)
@@ -98,7 +115,8 @@ class Deproxy:
 class DeproxyEndpoint(SocketServer.ThreadingMixIn, BaseHTTPServer.HTTPServer):
     def __init__(self, deproxy, server_address, name):
         log('in DeproxyHTTPServer.__init__')
-        BaseHTTPServer.HTTPServer.__init__(self, server_address, self.instantiate)
+        BaseHTTPServer.HTTPServer.__init__(self, server_address,
+                                           self.instantiate)
 
         self.deproxy = deproxy
         self.name = name
@@ -116,17 +134,21 @@ class DeproxyEndpoint(SocketServer.ThreadingMixIn, BaseHTTPServer.HTTPServer):
 
     def process_request_thread(self, request, client_address):
         log('override process_request_thread')
-        SocketServer.ThreadingMixIn.process_request_thread(self, request, client_address)
+        SocketServer.ThreadingMixIn.process_request_thread(self, request,
+                                                           client_address)
 
     def process_request(self, request, client_address):
         log('override process_request')
-        SocketServer.ThreadingMixIn.process_request(self, request, client_address)
+        SocketServer.ThreadingMixIn.process_request(self, request,
+                                                    client_address)
+
 
 class DeproxyRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
     def __init__(self, request, client_address, server):
         log('in DeproxyRequestHandler.__init__')
-        BaseHTTPServer.BaseHTTPRequestHandler.__init__(self, request, client_address, server)
+        BaseHTTPServer.BaseHTTPRequestHandler.__init__(self, request,
+                                                       client_address, server)
 
     def handle(self):
         log('override handle')
@@ -156,13 +178,15 @@ class DeproxyRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                 # An error code has been sent, just exit
                 return
 
-            incoming_request = Request(self.command, self.path, self.headers, self.rfile)
+            incoming_request = Request(self.command, self.path, self.headers,
+                                       self.rfile)
 
             handler_function = default_handler
             message_chain = None
             if request_id_header_name in self.headers:
                 request_id = self.headers[request_id_header_name]
-                message_chain = self.server.deproxy.get_message_chain(request_id)
+                message_chain = self.server.deproxy.get_message_chain(
+                    request_id)
                 if message_chain:
                     handler_function = message_chain.handler_function
 
@@ -173,8 +197,10 @@ class DeproxyRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
             outgoing_response = resp
 
-            if message_chain != None:
-                message_chain.add_handling(Handling(self.server, incoming_request, outgoing_response))
+            if message_chain is not None:
+                message_chain.add_handling(Handling(self.server,
+                                                    incoming_request,
+                                                    outgoing_response))
 
             self.send_response(resp.code, resp.message)
             for name, value in resp.headers.items():
@@ -182,7 +208,7 @@ class DeproxyRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(resp.body)
 
-            self.wfile.flush() #actually send the response if not already done.
+            self.wfile.flush()
 
         except socket.timeout, e:
             #a read or a write timed out.    Discard this connection
