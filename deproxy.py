@@ -182,8 +182,6 @@ class DeproxyEndpoint:
 
     ### BaseServer
 
-    timeout = None
-
     def serve_forever(self, poll_interval=0.5):
         """Handle one request at a time until shutdown.
 
