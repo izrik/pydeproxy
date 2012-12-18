@@ -298,11 +298,7 @@ class DeproxyRequestHandler:
                                                     incoming_request,
                                                     outgoing_response))
 
-            self.send_response(wfile, resp.code, resp.message)
-            for name, value in resp.headers.items():
-                self.send_header(wfile, name, value)
-            self.end_headers(wfile)
-            wfile.write(resp.body)
+            self.send_response2(wfile, resp)
 
             wfile.flush()
 
@@ -416,6 +412,13 @@ class DeproxyRequestHandler:
         self.end_headers(wfile)
         if self.command != 'HEAD' and code >= 200 and code not in (204, 304):
             wfile.write(content)
+
+    def send_response2(self, wfile, response):
+        self.send_response(wfile, response.code, response.message)
+        for name, value in response.headers.items():
+            self.send_header(wfile, name, value)
+        self.end_headers(wfile)
+        wfile.write(response.body)
 
     def send_response(self, wfile, code, message=None):
         """Send the response header and log the response code.
