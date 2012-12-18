@@ -366,7 +366,8 @@ class DeproxyRequestHandler:
             except (ValueError, IndexError):
                 self.send_error(400, "Bad request version (%r)" % version)
                 return False
-            if version_number >= (1, 1) and self.protocol_version >= "HTTP/1.1":
+            if (version_number >= (1, 1) and
+                    self.protocol_version >= "HTTP/1.1"):
                 self.close_connection = 0
             if version_number >= (2, 0):
                 self.send_error(505,
@@ -421,7 +422,8 @@ class DeproxyRequestHandler:
         # using _quote_html to prevent Cross Site Scripting attacks
         # (see bug #1100201)
         content = (self.error_message_format %
-                   {'code': code, 'message': _quote_html(message), 'explain': explain})
+                   {'code': code, 'message': _quote_html(message),
+                    'explain': explain})
         self.send_response(code, message)
         self.send_header("Content-Type", self.error_content_type)
         self.send_header('Connection', 'close')
@@ -660,7 +662,6 @@ class DeproxyRequestHandler:
         505: ('HTTP Version Not Supported', 'Cannot fulfill request.'),
         }
 
-
     """Define self.rfile and self.wfile for stream sockets."""
 
     # Default buffer sizes for rfile, wfile.
@@ -679,5 +680,3 @@ class DeproxyRequestHandler:
     # Disable nagle algoritm for this socket, if True.
     # Use only when wbufsize != 0, to avoid small packets.
     disable_nagle_algorithm = False
-
-
