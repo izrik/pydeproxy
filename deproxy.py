@@ -152,7 +152,7 @@ class DeproxyEndpoint:
 
         """
         try:
-            self.finish_request(request, client_address)
+            self.instantiate(request, client_address, self)
             self.shutdown_request(request)
         except:
             self.handle_error(request, client_address)
@@ -333,9 +333,6 @@ class DeproxyEndpoint:
 
         """
         return True
-
-    def finish_request(self, request, client_address):
-        self.instantiate(request, client_address, self)
 
     def handle_error(self, request, client_address):
         """Handle an error gracefully.  May be overridden.
