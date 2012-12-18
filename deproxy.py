@@ -124,7 +124,16 @@ class DeproxyEndpoint:
         # TCPServer init
         self.socket = socket.socket(self.address_family,
                                     self.socket_type)
-        self.server_bind()
+
+        if self.allow_reuse_address:
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.socket.bind(self.server_address)
+        self.server_address = self.socket.getsockname()
+
+        host, port = self.socket.getsockname()[:2]
+        self.server_name = socket.getfqdn(host)
+        self.server_port = port
+
         self.socket.listen(self.request_queue_size)
 
         # DeproxyEndpoint init
@@ -169,17 +178,6 @@ class DeproxyEndpoint:
     ### HTTPServer
 
     allow_reuse_address = 1    # Seems to make sense in testing environment
-
-    def server_bind(self):
-        #self.TCPServer_server_bind()
-        if self.allow_reuse_address:
-            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.socket.bind(self.server_address)
-        self.server_address = self.socket.getsockname()
-
-        host, port = self.socket.getsockname()[:2]
-        self.server_name = socket.getfqdn(host)
-        self.server_port = port
 
     ### TCPServer
 
