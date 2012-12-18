@@ -3,7 +3,6 @@
 import requests
 import threading
 import socket
-import inspect
 import time
 import collections
 import uuid
@@ -19,22 +18,13 @@ Handling = collections.namedtuple('Handling', ['endpoint', 'request',
                                                'response'])
 
 
-def log(s):
-    f = inspect.getouterframes(inspect.currentframe(), 1)[1]
-    t = threading.current_thread()
-    print '[%s : %s(%i) : %s : %s (%i)] %s' % (time.ctime(), f[1], f[2], f[3],
-                                               t.name, t.ident, s)
-
-
 def default_handler(request):
-    log('in default_handler')
     # returns a Response, comprised of status_code, status_message,
     # headers (list of key/value pairs), response_body (text or stream)
     return Response(200, 'OK', {}, '')
 
 
 def echo_handler(request):
-    log('in echo_handler')
     return Response(200, 'OK', request.headers, request.body)
 
 request_id_header_name = 'Request-ID'
@@ -62,8 +52,6 @@ class Deproxy:
 
     def make_request(self, url, method='GET', headers={}, request_body='',
                      handler_function=default_handler):
-        log('in make_request(%s, %s, %s, %s)' % (url, method, headers,
-                                                 request_body))
 
         request_id = str(uuid.uuid4())
         headers[request_id_header_name] = request_id
@@ -114,7 +102,6 @@ class Deproxy:
 
 class DeproxyEndpoint:
     def __init__(self, deproxy, server_address, name):
-        log('in DeproxyHTTPServer.__init__')
 
         # BaseServer init
         self.server_address = server_address
@@ -140,11 +127,9 @@ class DeproxyEndpoint:
         self.name = name
         self.address = server_address
 
-        log('Creating server thread')
         server_thread = threading.Thread(target=self.serve_forever)
         server_thread.daemon = True
         server_thread.start()
-        log('Thread started')
 
     ### ThreadingMixIn
     daemon_threads = False
@@ -271,7 +256,6 @@ class DeproxyRequestHandler:
             self.rfile.close()
 
     def handle_one_request(self):
-        log('in handle_one_request()')
         try:
             self.raw_requestline = self.rfile.readline(65537)
             if len(self.raw_requestline) > 65536:
@@ -321,7 +305,6 @@ class DeproxyRequestHandler:
 
         except socket.timeout, e:
             #a read or a write timed out.    Discard this connection
-            self.log_error("Request timed out: %r", e)
             self.close_connection = 1
             return
 
@@ -418,7 +401,6 @@ class DeproxyRequestHandler:
         if message is None:
             message = short
         explain = long
-        self.log_error("code %d, message %s", code, message)
         # using _quote_html to prevent Cross Site Scripting attacks
         # (see bug #1100201)
         content = (self.error_message_format %
@@ -438,7 +420,6 @@ class DeproxyRequestHandler:
         version and the current date.
 
         """
-        self.log_request(code)
         if message is None:
             if code in self.responses:
                 message = self.responses[code][0]
@@ -467,52 +448,6 @@ class DeproxyRequestHandler:
         if self.request_version != 'HTTP/0.9':
             self.wfile.write("\r\n")
 
-    def log_request(self, code='-', size='-'):
-        """Log an accepted request.
-
-        This is called by send_response().
-
-        """
-
-        self.log_message('"%s" %s %s',
-                         self.requestline, str(code), str(size))
-
-    def log_error(self, format, *args):
-        """Log an error.
-
-        This is called when a request cannot be fulfilled.  By
-        default it passes the message on to log_message().
-
-        Arguments are the same as for log_message().
-
-        XXX This should go to the separate error log.
-
-        """
-
-        self.log_message(format, *args)
-
-    def log_message(self, format, *args):
-        """Log an arbitrary message.
-
-        This is used by all other logging functions.  Override
-        it if you have specific logging wishes.
-
-        The first argument, FORMAT, is a format string for the
-        message to be logged.  If the format string contains
-        any % escapes requiring parameters, they should be
-        specified as subsequent arguments (it's just like
-        printf!).
-
-        The client host and current date/time are prefixed to
-        every message.
-
-        """
-
-        sys.stderr.write("%s - - [%s] %s\n" %
-                         (self.address_string(),
-                          self.log_date_time_string(),
-                          format % args))
-
     def version_string(self):
         """Return the server software version string."""
         return self.server_version + ' ' + self.sys_version
@@ -527,25 +462,6 @@ class DeproxyRequestHandler:
                 day, self.monthname[month], year,
                 hh, mm, ss)
         return s
-
-    def log_date_time_string(self):
-        """Return the current time formatted for logging."""
-        now = time.time()
-        year, month, day, hh, mm, ss, x, y, z = time.localtime(now)
-        s = "%02d/%3s/%04d %02d:%02d:%02d" % (
-                day, self.monthname[month], year, hh, mm, ss)
-        return s
-
-    def address_string(self):
-        """Return the client address formatted for logging.
-
-        This version looks up the full hostname using gethostbyaddr(),
-        and tries to find a name that contains at least one dot.
-
-        """
-
-        host, port = self.client_address[:2]
-        return socket.getfqdn(host)
 
     # The Python system version, truncated to its first component.
     sys_version = "Python/" + sys.version.split()[0]
