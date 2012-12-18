@@ -331,7 +331,7 @@ class DeproxyRequestHandler:
             if version[:5] != 'HTTP/':
                 self.send_error(wfile, 400, "Bad request version (%r)" %
                                 version)
-                return False
+                return ()
             try:
                 base_version_number = version.split('/', 1)[1]
                 version_number = base_version_number.split(".")
@@ -347,27 +347,27 @@ class DeproxyRequestHandler:
             except (ValueError, IndexError):
                 self.send_error(wfile, 400, "Bad request version (%r)" %
                                 version)
-                return False
+                return ()
             if (version_number >= (1, 1) and
                     self.protocol_version >= "HTTP/1.1"):
                 self.close_connection = 0
             if version_number >= (2, 0):
                 self.send_error(wfile, 505,
                           "Invalid HTTP Version (%s)" % base_version_number)
-                return False
+                return ()
         elif len(words) == 2:
             [command, path] = words
             self.close_connection = 1
             if command != 'GET':
                 self.send_error(wfile, 400,
                                 "Bad HTTP/0.9 request type (%r)" % command)
-                return False
+                return ()
         elif not words:
-            return False
+            return ()
         else:
             self.send_error(wfile, 400, "Bad request syntax (%r)" %
                             requestline)
-            return False
+            return ()
         self.command, self.path, self.request_version = command, path, version
 
         # Examine the headers and look for a Connection directive
