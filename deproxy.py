@@ -231,10 +231,6 @@ class DeproxyEndpoint:
             request.shutdown(socket.SHUT_WR)
         except socket.error:
             pass  # some platforms may raise ENOTCONN here
-        self.close_request(request)
-
-    def close_request(self, request):
-        """Called to clean up an individual request."""
         request.close()
 
     ### BaseServer
