@@ -263,17 +263,16 @@ class DeproxyRequestHandler:
 
     def handle_one_request(self, rfile, wfile):
         try:
-            self.raw_requestline = rfile.readline(65537)
-            if len(self.raw_requestline) > 65536:
-                self.requestline = ''
+            requestline = rfile.readline(65537)
+            if len(requestline) > 65536:
                 self.request_version = ''
                 self.command = ''
                 self.send_error(wfile, 414)
                 return
-            if not self.raw_requestline:
+            if not requestline:
                 self.close_connection = 1
                 return
-            if not self.parse_request(rfile, wfile):
+            if not self.parse_request(rfile, wfile, requestline):
                 # An error code has been sent, just exit
                 return
 
@@ -314,7 +313,7 @@ class DeproxyRequestHandler:
             self.close_connection = 1
             return
 
-    def parse_request(self, rfile, wfile):
+    def parse_request(self, rfile, wfile, requestline):
         """Parse a request (internal).
 
         The request should be stored in self.raw_requestline; the results
@@ -328,12 +327,10 @@ class DeproxyRequestHandler:
         self.command = None  # set in case of error on the first line
         self.request_version = version = self.default_request_version
         self.close_connection = 1
-        requestline = self.raw_requestline
         if requestline[-2:] == '\r\n':
             requestline = requestline[:-2]
         elif requestline[-1:] == '\n':
             requestline = requestline[:-1]
-        self.requestline = requestline
         words = requestline.split()
         if len(words) == 3:
             [command, path, version] = words
