@@ -283,24 +283,6 @@ class DeproxyEndpoint:
     # - finish_request() instantiates the request handler class;
     #   this constructor will handle the request all by itself
 
-    def handle_request(self):
-        """Handle one request, possibly blocking.
-
-        Respects self.timeout.
-        """
-        # Support people who used socket.settimeout() to escape
-        # handle_request before self.timeout was available.
-        timeout = self.socket.gettimeout()
-        if timeout is None:
-            timeout = self.timeout
-        elif self.timeout is not None:
-            timeout = min(timeout, self.timeout)
-        fd_sets = select.select([self], [], [], timeout)
-        if not fd_sets[0]:
-            self.handle_timeout()
-            return
-        self._handle_request_noblock()
-
     def _handle_request_noblock(self):
         """Handle one request, without blocking.
 
