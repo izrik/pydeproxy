@@ -27,6 +27,13 @@ def default_handler(request):
 def echo_handler(request):
     return Response(200, 'OK', request.headers, request.body)
 
+
+def delay_and_then(seconds, handler_function):
+    def delay(request):
+        time.sleep(seconds)
+        return handler_function(request)
+    return delay
+
 request_id_header_name = 'Request-ID'
 
 
