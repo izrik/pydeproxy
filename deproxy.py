@@ -125,8 +125,7 @@ class DeproxyEndpoint:
         self.socket = socket.socket(self.address_family,
                                     self.socket_type)
 
-        if self.allow_reuse_address:
-            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.socket.bind(self.server_address)
         self.server_address = self.socket.getsockname()
 
@@ -163,10 +162,6 @@ class DeproxyEndpoint:
         finally:
             self.shutdown_request(request)
 
-    ### HTTPServer
-
-    allow_reuse_address = 1    # Seems to make sense in testing environment
-
     ### TCPServer
 
     address_family = socket.AF_INET
@@ -174,8 +169,6 @@ class DeproxyEndpoint:
     socket_type = socket.SOCK_STREAM
 
     request_queue_size = 5
-
-    TCPServer_allow_reuse_address = False
 
     def fileno(self):
         """Return socket file number.
