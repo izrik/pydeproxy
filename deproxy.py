@@ -170,14 +170,6 @@ class DeproxyEndpoint:
 
     request_queue_size = 5
 
-    def fileno(self):
-        """Return socket file number.
-
-        Interface required by select().
-
-        """
-        return self.socket.fileno()
-
     def shutdown_request(self, request):
         """Called to shutdown and close an individual request."""
         try:
@@ -206,8 +198,8 @@ class DeproxyEndpoint:
                 # connecting to the socket to wake this up instead of
                 # polling. Polling reduces our responsiveness to a
                 # shutdown request and wastes cpu at all other times.
-                r, w, e = select.select([self], [], [], poll_interval)
-                if self in r:
+                r, w, e = select.select([self.socket], [], [], poll_interval)
+                if self.socket in r:
                     self._handle_request_noblock()
         finally:
             self.__shutdown_request = False
