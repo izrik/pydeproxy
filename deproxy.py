@@ -198,7 +198,23 @@ class DeproxyEndpoint:
                 # shutdown request and wastes cpu at all other times.
                 r, w, e = select.select([self.socket], [], [], poll_interval)
                 if self.socket in r:
-                    self._handle_request_noblock()
+                    try:
+                        request, client_address = self.socket.accept()
+                    except socket.error:
+                        return
+
+                    try:
+                        t = threading.Thread(
+                            target=self.process_request_thread,
+                            args=(request, client_address))
+                        if self.daemon_threads:
+                            t.setDaemon(1)
+                        t.start()
+
+                    except:
+                        self.handle_error(request, client_address)
+                        self.shutdown_request(request)
+
         finally:
             self.__shutdown_request = False
             self.__is_shut_down.set()
@@ -212,29 +228,6 @@ class DeproxyEndpoint:
         """
         self.__shutdown_request = True
         self.__is_shut_down.wait()
-
-    def _handle_request_noblock(self):
-        """Handle one request, without blocking.
-
-        I assume that select.select has returned that the socket is
-        readable before this function was called, so there should be
-        no risk of blocking in get_request().
-        """
-        try:
-            request, client_address = self.socket.accept()
-        except socket.error:
-            return
-
-        try:
-            t = threading.Thread(target=self.process_request_thread,
-                                 args=(request, client_address))
-            if self.daemon_threads:
-                t.setDaemon(1)
-            t.start()
-
-        except:
-            self.handle_error(request, client_address)
-            self.shutdown_request(request)
 
     def handle_error(self, request, client_address):
         """Handle an error gracefully.  May be overridden.
