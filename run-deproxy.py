@@ -2,9 +2,12 @@
 
 import deproxy
 
+
 def handler2(request):
     deproxy.log('in handler2')
-    return deproxy.Response(601, 'Something', {'X-Header': 'Value'}, 'this is the body')
+    return deproxy.Response(601, 'Something', {'X-Header': 'Value'},
+                            'this is the body')
+
 
 def print_request(request, heading=None):
     if heading:
@@ -17,6 +20,7 @@ def print_request(request, heading=None):
     print '    body: %s' % request.body
     print ''
 
+
 def print_response(response, heading=None):
     if heading:
         print heading
@@ -28,15 +32,19 @@ def print_response(response, heading=None):
     print '    Body:'
     print response.body
 
+
 def print_message_chain(mc, heading=None):
     if heading:
         print heading
     print_request(mc.sent_request, 'Sent Request')
     for h in mc.handlings:
-        print 'Endpoint: "%s (%s:%i)' % (h.endpoint.name, h.endpoint.address[0], h.endpoint.address[1])
+        print 'Endpoint: "%s (%s:%i)' % (h.endpoint.name,
+                                         h.endpoint.address[0],
+                                         h.endpoint.address[1])
         print_request(h.request, '  Received Request')
         print_response(h.response, '  Sent Response')
     print_response(mc.received_response, 'Received Response')
+
 
 def run():
     server = 'localhost'
@@ -45,12 +53,12 @@ def run():
 
     deproxy.log('Creating receiver')
     d = deproxy.Deproxy(server_address)
-    d.add_endpoint((server, port+1))
+    d.add_endpoint((server, port + 1))
 
     target = server
 
-    url = 'http://%s:%i/abc/123' % (target, port);
-    url2 = 'http://%s:%i/abc/123' % (target, port+1);
+    url = 'http://%s:%i/abc/123' % (target, port)
+    url2 = 'http://%s:%i/abc/123' % (target, port + 1)
 
     print
     deproxy.log('making request')
