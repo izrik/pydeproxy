@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
 import deproxy
+import threading
 
 
 def handler2(request):
-    deproxy.log('in handler2')
     return deproxy.Response(601, 'Something', {'X-Header': 'Value'},
                             'this is the body')
 
@@ -46,12 +46,24 @@ def print_message_chain(mc, heading=None):
     print_response(mc.received_response, 'Received Response')
 
 
+def do_request_async(d, url, method, handler_function):
+    t = threading.Thread(target=do_request_async_target,
+                         args=(d, url, method, handler_function))
+    t.start()
+
+
+def do_request_async_target(d, url, method, handler_function):
+    print
+    mc = d.make_request(url, method, handler_function=handler_function)
+    print
+    print_message_chain(mc)
+
+
 def run():
     server = 'localhost'
     port = 8081
     server_address = (server, port)
 
-    deproxy.log('Creating receiver')
     d = deproxy.Deproxy(server_address)
     d.add_endpoint((server, port + 1))
 
@@ -60,23 +72,29 @@ def run():
     url = 'http://%s:%i/abc/123' % (target, port)
     url2 = 'http://%s:%i/abc/123' % (target, port + 1)
 
+    print "======== Normal Functionality ========"
+
     print
-    deproxy.log('making request')
     mc = d.make_request(url, 'GET')
     print
     print_message_chain(mc)
 
     print
-    deproxy.log('making request')
     mc = d.make_request(url2, 'GET', handler_function=handler2)
     print
     print_message_chain(mc)
 
     print
-    deproxy.log('making request')
     mc = d.make_request(url2, 'GET', handler_function=deproxy.echo_handler)
     print
     print_message_chain(mc)
+
+    print "======== Multi-threaded Functionality ========"
+
+    do_request_async(d, url, 'GET', handler_function=deproxy.delay_and_then(2,
+                                                        deproxy.echo_handler))
+
+    do_request_async(d, url2, 'GET', handler_function=deproxy.default_handler)
 
 if __name__ == '__main__':
     run()
