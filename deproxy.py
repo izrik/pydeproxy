@@ -9,6 +9,7 @@ import inspect
 import time
 import collections
 import uuid
+import select
 
 Request = collections.namedtuple('Request', ['method', 'path', 'headers',
                                              'body'])
@@ -111,11 +112,10 @@ class Deproxy:
                 return None
 
 
-class DeproxyEndpoint(SocketServer.ThreadingMixIn, BaseHTTPServer.HTTPServer):
+class DeproxyEndpoint:
     def __init__(self, deproxy, server_address, name):
         log('in DeproxyHTTPServer.__init__')
-        BaseHTTPServer.HTTPServer.__init__(self, server_address,
-                                           self.instantiate)
+        self.TCPServer__init__(server_address, self.instantiate)
 
         self.deproxy = deproxy
         self.name = name
@@ -131,15 +131,238 @@ class DeproxyEndpoint(SocketServer.ThreadingMixIn, BaseHTTPServer.HTTPServer):
         log('in instantiate')
         return DeproxyRequestHandler(request, client_address, server)
 
+    ### ThreadingMixIn
+    daemon_threads = False
+
     def process_request_thread(self, request, client_address):
-        log('override process_request_thread')
-        SocketServer.ThreadingMixIn.process_request_thread(self, request,
-                                                           client_address)
+        """Same as in BaseServer but as a thread.
+
+        In addition, exception handling is done here.
+
+        """
+        try:
+            self.finish_request(request, client_address)
+            self.shutdown_request(request)
+        except:
+            self.handle_error(request, client_address)
+            self.shutdown_request(request)
 
     def process_request(self, request, client_address):
-        log('override process_request')
-        SocketServer.ThreadingMixIn.process_request(self, request,
-                                                    client_address)
+        """Start a new thread to process the request."""
+        t = threading.Thread(target=self.process_request_thread,
+                             args=(request, client_address))
+        if self.daemon_threads:
+            t.setDaemon(1)
+        t.start()
+
+    ### HTTPServer
+
+    allow_reuse_address = 1    # Seems to make sense in testing environment
+
+    def server_bind(self):
+        """Override server_bind to store the server name."""
+        self.TCPServer_server_bind()
+        host, port = self.socket.getsockname()[:2]
+        self.server_name = socket.getfqdn(host)
+        self.server_port = port
+
+    ### TCPServer
+
+    address_family = socket.AF_INET
+
+    socket_type = socket.SOCK_STREAM
+
+    request_queue_size = 5
+
+    TCPServer_allow_reuse_address = False
+
+    def TCPServer__init__(self, server_address, RequestHandlerClass,
+                          bind_and_activate=True):
+        """Constructor.  May be extended, do not override."""
+        self.BaseServer__init__(server_address, RequestHandlerClass)
+        self.socket = socket.socket(self.address_family,
+                                    self.socket_type)
+        if bind_and_activate:
+            self.server_bind()
+            self.server_activate()
+
+    def TCPServer_server_bind(self):
+        """Called by constructor to bind the socket.
+
+        May be overridden.
+
+        """
+        if self.allow_reuse_address:
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.socket.bind(self.server_address)
+        self.server_address = self.socket.getsockname()
+
+    def server_activate(self):
+        """Called by constructor to activate the server.
+
+        May be overridden.
+
+        """
+        self.socket.listen(self.request_queue_size)
+
+    def server_close(self):
+        """Called to clean-up the server.
+
+        May be overridden.
+
+        """
+        self.socket.close()
+
+    def fileno(self):
+        """Return socket file number.
+
+        Interface required by select().
+
+        """
+        return self.socket.fileno()
+
+    def get_request(self):
+        """Get the request and client address from the socket.
+
+        May be overridden.
+
+        """
+        return self.socket.accept()
+
+    def shutdown_request(self, request):
+        """Called to shutdown and close an individual request."""
+        try:
+            #explicitly shutdown.  socket.close() merely releases
+            #the socket and waits for GC to perform the actual close.
+            request.shutdown(socket.SHUT_WR)
+        except socket.error:
+            pass  # some platforms may raise ENOTCONN here
+        self.close_request(request)
+
+    def close_request(self, request):
+        """Called to clean up an individual request."""
+        request.close()
+
+    ### BaseServer
+
+    timeout = None
+
+    def BaseServer__init__(self, server_address, RequestHandlerClass):
+        """Constructor.  May be extended, do not override."""
+        self.server_address = server_address
+        self.RequestHandlerClass = RequestHandlerClass
+        self.__is_shut_down = threading.Event()
+        self.__shutdown_request = False
+
+    def serve_forever(self, poll_interval=0.5):
+        """Handle one request at a time until shutdown.
+
+        Polls for shutdown every poll_interval seconds. Ignores
+        self.timeout. If you need to do periodic tasks, do them in
+        another thread.
+        """
+        self.__is_shut_down.clear()
+        try:
+            while not self.__shutdown_request:
+                # XXX: Consider using another file descriptor or
+                # connecting to the socket to wake this up instead of
+                # polling. Polling reduces our responsiveness to a
+                # shutdown request and wastes cpu at all other times.
+                r, w, e = select.select([self], [], [], poll_interval)
+                if self in r:
+                    self._handle_request_noblock()
+        finally:
+            self.__shutdown_request = False
+            self.__is_shut_down.set()
+
+    def shutdown(self):
+        """Stops the serve_forever loop.
+
+        Blocks until the loop has finished. This must be called while
+        serve_forever() is running in another thread, or it will
+        deadlock.
+        """
+        self.__shutdown_request = True
+        self.__is_shut_down.wait()
+
+    # The distinction between handling, getting, processing and
+    # finishing a request is fairly arbitrary.  Remember:
+    #
+    # - handle_request() is the top-level call.  It calls
+    #   select, get_request(), verify_request() and process_request()
+    # - get_request() is different for stream or datagram sockets
+    # - process_request() is the place that may fork a new process
+    #   or create a new thread to finish the request
+    # - finish_request() instantiates the request handler class;
+    #   this constructor will handle the request all by itself
+
+    def handle_request(self):
+        """Handle one request, possibly blocking.
+
+        Respects self.timeout.
+        """
+        # Support people who used socket.settimeout() to escape
+        # handle_request before self.timeout was available.
+        timeout = self.socket.gettimeout()
+        if timeout is None:
+            timeout = self.timeout
+        elif self.timeout is not None:
+            timeout = min(timeout, self.timeout)
+        fd_sets = select.select([self], [], [], timeout)
+        if not fd_sets[0]:
+            self.handle_timeout()
+            return
+        self._handle_request_noblock()
+
+    def _handle_request_noblock(self):
+        """Handle one request, without blocking.
+
+        I assume that select.select has returned that the socket is
+        readable before this function was called, so there should be
+        no risk of blocking in get_request().
+        """
+        try:
+            request, client_address = self.get_request()
+        except socket.error:
+            return
+        if self.verify_request(request, client_address):
+            try:
+                self.process_request(request, client_address)
+            except:
+                self.handle_error(request, client_address)
+                self.shutdown_request(request)
+
+    def handle_timeout(self):
+        """Called if no new request arrives within self.timeout.
+
+        Overridden by ForkingMixIn.
+        """
+        pass
+
+    def verify_request(self, request, client_address):
+        """Verify the request.  May be overridden.
+
+        Return True if we should proceed with this request.
+
+        """
+        return True
+
+    def finish_request(self, request, client_address):
+        """Finish one request by instantiating RequestHandlerClass."""
+        self.RequestHandlerClass(request, client_address, self)
+
+    def handle_error(self, request, client_address):
+        """Handle an error gracefully.  May be overridden.
+
+        The default is to print a traceback and continue.
+
+        """
+        print '-' * 40
+        print 'Exception happened during processing of request from',
+        print client_address
+        import traceback
+        traceback.print_exc()  # XXX But this goes to stderr!
+        print '-' * 40
 
 
 class DeproxyRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
