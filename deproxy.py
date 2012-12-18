@@ -420,56 +420,43 @@ class DeproxyRequestHandler:
         self.send_response2(response)
 
     def send_response2(self, wfile, response):
-        self.send_response(wfile, response.code, response.message)
-
-        hs = {}
-
-        for name, value in response.headers.items():
-            name_lower = name.lower()
-            hs[name_lower] = value
-
-        if 'server' not in hs:
-            hs['server'] = self.version_string()
-        if 'date' not in hs:
-            hs['date'] = self.date_time_string()
-
-        for name, value in hs.iteritems():
-            self.send_header(wfile, name, value)
-
-        self.end_headers(wfile)
-        wfile.write(response.body)
-
-    def send_response(self, wfile, code, message=None):
-        """Send the response header and log the response code.
-
-        Also send two standard headers with the server software
-        version and the current date.
-
-        """
+        message = response.message
         if message is None:
-            if code in self.responses:
-                message = self.responses[code][0]
+            if response.code in self.responses:
+                message = self.responses[response.code][0]
             else:
                 message = ''
         if self.request_version != 'HTTP/0.9':
             wfile.write("%s %d %s\r\n" %
-                             (self.protocol_version, code, message))
+                             (self.protocol_version, response.code, message))
 
-    def send_header(self, wfile, keyword, value):
-        """Send a MIME header."""
-        if self.request_version != 'HTTP/0.9':
-            wfile.write("%s: %s\r\n" % (keyword, value))
+        headers = dict(response.headers)
+        lowers = {}
 
-        if keyword.lower() == 'connection':
-            if value.lower() == 'close':
-                self.close_connection = 1
-            elif value.lower() == 'keep-alive':
-                self.close_connection = 0
+        for name, value in response.headers.items():
+            name_lower = name.lower()
+            lowers[name_lower] = value
 
-    def end_headers(self, wfile):
-        """Send the blank line ending the MIME headers."""
+        if 'server' not in lowers:
+            headers['Server'] = self.version_string()
+        if 'date' not in lowers:
+            headers['Date'] = self.date_time_string()
+
+        for name, value in headers.iteritems():
+            if self.request_version != 'HTTP/0.9':
+                wfile.write("%s: %s\r\n" % (name, value))
+            if name.lower() == 'connection':
+                if value.lower() == 'close':
+                    self.close_connection = 1
+                elif value.lower() == 'keep-alive':
+                    self.close_connection = 0
+
+        # Send the blank line ending the MIME headers.
         if self.request_version != 'HTTP/0.9':
             wfile.write("\r\n")
+
+        # Send the response body
+        wfile.write(response.body)
 
     def version_string(self):
         """Return the server software version string."""
