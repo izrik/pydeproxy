@@ -249,19 +249,7 @@ class DeproxyRequestHandler:
         self.request = request
         self.client_address = client_address
         self.server = server
-        self.setup()
-        try:
-            self.handle()
-        finally:
-            self.finish()
 
-    def finish(self):
-        if not self.wfile.closed:
-            self.wfile.flush()
-        self.wfile.close()
-        self.rfile.close()
-
-    def setup(self):
         self.connection = self.request
         if self.timeout is not None:
             self.connection.settimeout(self.timeout)
@@ -270,6 +258,14 @@ class DeproxyRequestHandler:
                                        socket.TCP_NODELAY, True)
         self.rfile = self.connection.makefile('rb', self.rbufsize)
         self.wfile = self.connection.makefile('wb', self.wbufsize)
+
+        try:
+            self.handle()
+        finally:
+            if not self.wfile.closed:
+                self.wfile.flush()
+            self.wfile.close()
+            self.rfile.close()
 
     def handle(self):
         """Handle multiple requests if necessary."""
