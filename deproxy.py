@@ -246,10 +246,6 @@ class DeproxyEndpoint:
 class DeproxyRequestHandler:
 
     def __init__(self, request, client_address, server):
-        log('in DeproxyRequestHandler.__init__')
-        self.BaseRequestHandler__init__(request, client_address, server)
-
-    def BaseRequestHandler__init__(self, request, client_address, server):
         self.request = request
         self.client_address = client_address
         self.server = server
