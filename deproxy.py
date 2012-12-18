@@ -301,13 +301,6 @@ class DeproxyEndpoint:
                 self.handle_error(request, client_address)
                 self.shutdown_request(request)
 
-    def handle_timeout(self):
-        """Called if no new request arrives within self.timeout.
-
-        Overridden by ForkingMixIn.
-        """
-        pass
-
     def verify_request(self, request, client_address):
         """Verify the request.  May be overridden.
 
