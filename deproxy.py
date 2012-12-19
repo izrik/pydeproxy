@@ -160,7 +160,7 @@ class DeproxyEndpoint:
 
         """
         try:
-            DeproxyRequestHandler(request, client_address, self)
+            self.DeproxyRequestHandler(request, client_address, self)
         except:
             self.handle_error(request, client_address)
         finally:
@@ -246,9 +246,6 @@ class DeproxyEndpoint:
         traceback.print_exc()  # XXX But this goes to stderr!
         print '-' * 40
 
-
-class DeproxyRequestHandler:
-
     # The default request version.  This only affects responses up until
     # the point where the request line is parsed, so it mainly decides what
     # the client gets back when sending a malformed request line.
@@ -263,7 +260,7 @@ class DeproxyRequestHandler:
     # Use only when wbufsize != 0, to avoid small packets.
     disable_nagle_algorithm = False
 
-    def __init__(self, connection, client_address, endpoint):
+    def DeproxyRequestHandler(self, connection, client_address, endpoint):
         if self.disable_nagle_algorithm:
             connection.setsockopt(socket.IPPROTO_TCP,
                                        socket.TCP_NODELAY, True)
