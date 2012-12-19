@@ -459,11 +459,9 @@ Error code explanation: %(code)s = %(explain)s."""
         for name, value in headers.iteritems():
             if response.protocol != 'HTTP/0.9':
                 wfile.write("%s: %s\r\n" % (name, value))
-            if name.lower() == 'connection':
-                if value.lower() == 'close':
-                    close_connection = 1
-                elif value.lower() == 'keep-alive':
-                    close_connection = 0
+
+        close_connection = self.check_close_connection(response.headers, 
+                                                       close_connection)
 
         # Send the blank line ending the MIME headers.
         if response.protocol != 'HTTP/0.9':
@@ -472,6 +470,15 @@ Error code explanation: %(code)s = %(explain)s."""
         # Send the response body
         wfile.write(response.body)
 
+        return close_connection
+
+    def check_close_connection(self, headers, close_connection):
+        for name, value in headers.iteritems():
+            if name.lower() == 'connection':
+                if value.lower() == 'close':
+                    close_connection = 1
+                elif value.lower() == 'keep-alive':
+                    close_connection = 0
         return close_connection
 
     def date_time_string(self, timestamp=None):
