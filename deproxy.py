@@ -396,7 +396,7 @@ class DeproxyEndpoint:
             return ()
 
         # Examine the headers and look for a Connection directive
-        headers = mimetools.Message(rfile, 0)
+        headers = dict(mimetools.Message(rfile, 0))
 
         return Request(method, path, version, headers, rfile)
 
