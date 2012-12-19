@@ -353,7 +353,7 @@ class DeproxyRequestHandler:
         self.request_version = version
 
         # Examine the headers and look for a Connection directive
-        headers = self.MessageClass(rfile, 0)
+        headers = mimetools.Message(rfile, 0)
 
         conntype = headers.get('Connection', "")
         if conntype.lower() == 'close':
@@ -498,9 +498,6 @@ class DeproxyRequestHandler:
     # The version of the HTTP protocol we support.
     # Set this to HTTP/1.1 to enable automatic keepalive
     protocol_version = "HTTP/1.0"
-
-    # The Message-like class used to parse headers
-    MessageClass = mimetools.Message
 
     # Table mapping response codes to messages; entries have the
     # form {code: (shortmessage, longmessage)}.
