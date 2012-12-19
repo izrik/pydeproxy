@@ -21,10 +21,10 @@ deproxy_version = "Deproxy/0.1"
 version_string = deproxy_version + ' ' + python_version
 
 
-Request = collections.namedtuple('Request', ['method', 'path', 'headers',
-                                             'body'])
-Response = collections.namedtuple('Response', ['code', 'message', 'headers',
-                                               'body'])
+Request = collections.namedtuple('Request', ['method', 'path', 'protocol',
+                                             'headers', 'body'])
+Response = collections.namedtuple('Response', ['protocol', 'code', 'message',
+                                               'headers', 'body'])
 Handling = collections.namedtuple('Handling', ['endpoint', 'request',
                                                'response'])
 
@@ -32,11 +32,11 @@ Handling = collections.namedtuple('Handling', ['endpoint', 'request',
 def default_handler(request):
     # returns a Response, comprised of status_code, status_message,
     # headers (list of key/value pairs), response_body (text or stream)
-    return Response(200, 'OK', {}, '')
+    return Response('HTTP/1.0', 200, 'OK', {}, '')
 
 
 def echo_handler(request):
-    return Response(200, 'OK', request.headers, request.body)
+    return Response('HTTP/1.0', 200, 'OK', request.headers, request.body)
 
 
 def delay_and_then(seconds, handler_function):
@@ -85,8 +85,9 @@ class Deproxy:
         self.del_message_chain(request_id)
 
         message_chain.sent_request = Request(req.method, req.path_url,
-                                             req.headers, req.data)
-        message_chain.received_response = Response(resp.status_code,
+                                             'HTTP/1.0', req.headers, req.data)
+        message_chain.received_response = Response('HTTP/1.0',
+                                                   resp.status_code,
                                                    resp.raw.reason,
                                                    resp.headers,
                                                    resp.text)
@@ -264,8 +265,6 @@ class DeproxyRequestHandler:
 
     close_connection = 1
 
-    request_version = ''
-
     def __init__(self, connection, client_address, endpoint):
         if self.disable_nagle_algorithm:
             connection.setsockopt(socket.IPPROTO_TCP,
@@ -312,7 +311,7 @@ class DeproxyRequestHandler:
                                                     incoming_request,
                                                     outgoing_response))
 
-            self.send_response(wfile, resp, self.request_version)
+            self.send_response(wfile, resp)
 
             wfile.flush()
 
@@ -380,8 +379,6 @@ class DeproxyRequestHandler:
                             requestline)
             return ()
 
-        self.request_version = version
-
         # Examine the headers and look for a Connection directive
         headers = mimetools.Message(rfile, 0)
 
@@ -392,7 +389,7 @@ class DeproxyRequestHandler:
               self.protocol_version >= "HTTP/1.1"):
             self.close_connection = 0
 
-        return Request(method, path, headers, rfile)
+        return Request(method, path, version, headers, rfile)
 
     def send_error(self, wfile, code, method, request_version, message=None):
         """Send and log an error reply.
@@ -431,20 +428,20 @@ Error code explanation: %(code)s = %(explain)s."""
         if method == 'HEAD' or code < 200 or code in (204, 304):
             content = ''
 
-        response = Response(code, message, headers, content)
+        response = Response(request_version, code, message, headers, content)
 
-        self.send_response(response, request_version)
+        self.send_response(response)
 
-    def send_response(self, wfile, response, request_version):
+    def send_response(self, wfile, response):
         message = response.message
         if message is None:
             if response.code in messages_by_response_code:
                 message = messages_by_response_code[response.code][0]
             else:
                 message = ''
-        if request_version != 'HTTP/0.9':
+        if response.protocol != 'HTTP/0.9':
             wfile.write("%s %d %s\r\n" %
-                             (self.protocol_version, response.code, message))
+                             (response.protocol, response.code, message))
 
         headers = dict(response.headers)
         lowers = {}
@@ -459,7 +456,7 @@ Error code explanation: %(code)s = %(explain)s."""
             headers['Date'] = self.date_time_string()
 
         for name, value in headers.iteritems():
-            if request_version != 'HTTP/0.9':
+            if response.protocol != 'HTTP/0.9':
                 wfile.write("%s: %s\r\n" % (name, value))
             if name.lower() == 'connection':
                 if value.lower() == 'close':
@@ -468,7 +465,7 @@ Error code explanation: %(code)s = %(explain)s."""
                     self.close_connection = 0
 
         # Send the blank line ending the MIME headers.
-        if request_version != 'HTTP/0.9':
+        if response.protocol != 'HTTP/0.9':
             wfile.write("\r\n")
 
         # Send the response body
