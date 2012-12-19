@@ -325,6 +325,18 @@ class DeproxyRequestHandler:
 
         return 1
 
+    def check_close_connection(self, headers):
+        if self.protocol_version >= "HTTP/1.1":
+            for name, value in headers.items():
+                if name.lower() == 'connection':
+                    if value.lower() == 'close':
+                        return 1
+                    elif value.lower() == 'keep-alive':
+                        return 0
+        else:
+            return 1
+        return 0
+
     def parse_request(self, rfile, wfile):
         requestline = rfile.readline(65537)
         if len(requestline) > 65536:
@@ -461,19 +473,6 @@ Error code explanation: %(code)s = %(explain)s."""
 
         # Send the response body
         wfile.write(response.body)
-
-    def check_close_connection(self, headers):
-        if self.protocol_version >= "HTTP/1.1":
-            for name, value in headers.items():
-                if name.lower() == 'connection':
-                    if value.lower() == 'close':
-                        return 1
-                    elif value.lower() == 'keep-alive':
-                        return 0
-        else:
-            return 1
-
-        return 0
 
     def date_time_string(self, timestamp=None):
         """Return the current date and time formatted for a message header."""
