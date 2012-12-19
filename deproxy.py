@@ -262,6 +262,10 @@ class DeproxyRequestHandler:
     # Use only when wbufsize != 0, to avoid small packets.
     disable_nagle_algorithm = False
 
+    close_connection = 1
+
+    request_version = ''
+
     def __init__(self, connection, client_address, endpoint):
         if self.disable_nagle_algorithm:
             connection.setsockopt(socket.IPPROTO_TCP,
