@@ -273,7 +273,6 @@ class DeproxyRequestHandler:
         wfile = connection.makefile('wb', 0)
 
         try:
-            self.close_connection = 1
             self.handle_one_request(rfile, wfile, endpoint)
             while not self.close_connection:
                 self.handle_one_request(rfile, wfile, endpoint)
@@ -287,6 +286,7 @@ class DeproxyRequestHandler:
         try:
             incoming_request = self.parse_request(rfile, wfile)
             if not incoming_request:
+                self.close_connection = 1
                 # An error code has been sent, just exit
                 return
 
@@ -330,7 +330,6 @@ class DeproxyRequestHandler:
             self.send_error(wfile, 414, None, self.default_request_version)
             return ()
         if not requestline:
-            self.close_connection = 1
             return ()
 
         self.close_connection = 1
@@ -371,7 +370,6 @@ class DeproxyRequestHandler:
         elif len(words) == 2:
             [method, path] = words
             version = self.default_request_version
-            self.close_connection = 1
             if method != 'GET':
                 self.send_error(wfile, 400, method, self.default_request_version, 
                                 "Bad HTTP/0.9 request type (%r)" % method)
@@ -429,8 +427,6 @@ Error code explanation: %(code)s = %(explain)s."""
             content = ''
 
         response = Response(request_version, code, message, headers, content)
-
-        self.close_connection = 1
 
         self.send_response(response)
 
