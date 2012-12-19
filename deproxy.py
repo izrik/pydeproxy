@@ -434,9 +434,7 @@ Error code explanation: %(code)s = %(explain)s."""
 
         response = Response(request_version, code, message, headers, content)
 
-        self.close_connection = self.check_close_connection(response.headers, 
-                                                        self.close_connection)
-
+        self.close_connection = 1
 
         self.send_response(response)
 
