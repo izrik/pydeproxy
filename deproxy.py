@@ -284,11 +284,19 @@ class DeproxyRequestHandler:
 
     def handle_one_request(self, rfile, wfile, endpoint):
         try:
+            self.close_connection = 1
             incoming_request = self.parse_request(rfile, wfile)
             if not incoming_request:
                 self.close_connection = 1
                 # An error code has been sent, just exit
                 return
+
+            if incoming_request.protocol == 'HTTP/1.1':
+                if self.protocol_version >= "HTTP/1.1":
+                    self.close_connection = 0
+
+            self.close_connection = self.check_close_connection(incoming_request.headers, 
+                                                            self.close_connection)
 
             handler_function = default_handler
             message_chain = None
@@ -332,7 +340,6 @@ class DeproxyRequestHandler:
         if not requestline:
             return ()
 
-        self.close_connection = 1
         if requestline[-2:] == '\r\n':
             requestline = requestline[:-2]
         elif requestline[-1:] == '\n':
@@ -360,13 +367,6 @@ class DeproxyRequestHandler:
                 self.send_error(wfile, 400, method, self.default_request_version, "Bad request version (%r)" %
                                 version)
                 return ()
-            if (version_number >= (1, 1) and
-                    self.protocol_version >= "HTTP/1.1"):
-                self.close_connection = 0
-            if version_number >= (2, 0):
-                self.send_error(wfile, 505, method, self.default_request_version, 
-                          "Invalid HTTP Version (%s)" % base_version_number)
-                return ()
         elif len(words) == 2:
             [method, path] = words
             version = self.default_request_version
@@ -381,11 +381,15 @@ class DeproxyRequestHandler:
                             requestline)
             return ()
 
+        if (version != 'HTTP/1.1' and
+            version != 'HTTP/1.0' and
+            version != 'HTTP/0.9'):
+            self.send_error(wfile, 505, method, self.default_request_version, 
+                      "Invalid HTTP Version (%s)" % version)
+            return ()
+
         # Examine the headers and look for a Connection directive
         headers = mimetools.Message(rfile, 0)
-
-        self.close_connection = self.check_close_connection(headers, 
-                                                        self.close_connection)
 
         return Request(method, path, version, headers, rfile)
 
