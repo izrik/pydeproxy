@@ -311,7 +311,7 @@ class DeproxyRequestHandler:
                                                     incoming_request,
                                                     outgoing_response))
 
-            self.send_response(wfile, resp)
+            self.close_connection = self.send_response(wfile, resp, self.close_connection)
 
             wfile.flush()
 
@@ -430,9 +430,10 @@ Error code explanation: %(code)s = %(explain)s."""
 
         response = Response(request_version, code, message, headers, content)
 
-        self.send_response(response)
+        self.close_connection = self.send_response(response, self.close_connection)
 
-    def send_response(self, wfile, response):
+    def send_response(self, wfile, response, close_connection):
+
         message = response.message
         if message is None:
             if response.code in messages_by_response_code:
@@ -460,9 +461,9 @@ Error code explanation: %(code)s = %(explain)s."""
                 wfile.write("%s: %s\r\n" % (name, value))
             if name.lower() == 'connection':
                 if value.lower() == 'close':
-                    self.close_connection = 1
+                    close_connection = 1
                 elif value.lower() == 'keep-alive':
-                    self.close_connection = 0
+                    close_connection = 0
 
         # Send the blank line ending the MIME headers.
         if response.protocol != 'HTTP/0.9':
@@ -470,6 +471,8 @@ Error code explanation: %(code)s = %(explain)s."""
 
         # Send the response body
         wfile.write(response.body)
+
+        return close_connection
 
     def date_time_string(self, timestamp=None):
         """Return the current date and time formatted for a message header."""
