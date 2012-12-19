@@ -273,9 +273,9 @@ class DeproxyRequestHandler:
         wfile = connection.makefile('wb', 0)
 
         try:
-            self.handle_one_request(rfile, wfile, endpoint)
-            while not self.close_connection:
-                self.handle_one_request(rfile, wfile, endpoint)
+            close = self.handle_one_request(rfile, wfile, endpoint)
+            while not close:
+                close = self.handle_one_request(rfile, wfile, endpoint)
         finally:
             if not wfile.closed:
                 wfile.flush()
@@ -288,8 +288,7 @@ class DeproxyRequestHandler:
             incoming_request = self.parse_request(rfile, wfile)
             if not incoming_request:
                 self.close_connection = 1
-                # An error code has been sent, just exit
-                return
+                return self.close_connection
 
             if incoming_request.protocol == 'HTTP/1.1':
                 if self.protocol_version >= "HTTP/1.1":
@@ -328,7 +327,8 @@ class DeproxyRequestHandler:
         except socket.timeout, e:
             #a read or a write timed out.    Discard this connection
             self.close_connection = 1
-            return
+
+        return self.close_connection
 
     def parse_request(self, rfile, wfile):
         requestline = rfile.readline(65537)
