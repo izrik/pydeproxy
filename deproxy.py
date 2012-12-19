@@ -9,6 +9,7 @@ import uuid
 import select
 import sys
 import mimetools
+import urlparse
 
 # The Python system version, truncated to its first component.
 python_version = "Python/" + sys.version.split()[0]
@@ -77,6 +78,11 @@ class Deproxy:
         message_chain = MessageChain(handler_function)
         self.add_message_chain(request_id, message_chain)
 
+        urlparts = list(urlparse.urlsplit(url, 'http'))
+        urlparts[0] = ''
+        urlparts[1] = ''
+        path = urlparse.urlunsplit(urlparts)
+
         req = requests.request(method, url, return_response=False,
                                headers=headers, data=request_body)
         req.send()
@@ -84,8 +90,8 @@ class Deproxy:
 
         self.del_message_chain(request_id)
 
-        message_chain.sent_request = Request(req.method, req.path_url,
-                                             'HTTP/1.0', req.headers, req.data)
+        message_chain.sent_request = Request(method, path, 'HTTP/1.0',
+                                             req.headers, request_body)
         message_chain.received_response = Response('HTTP/1.0',
                                                    resp.status_code,
                                                    resp.raw.reason,
