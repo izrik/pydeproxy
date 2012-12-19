@@ -237,6 +237,28 @@ class DeproxyEndpoint:
 
 class DeproxyRequestHandler:
 
+    # The Python system version, truncated to its first component.
+    sys_version = "Python/" + sys.version.split()[0]
+
+    # The server software version.  You may want to override this.
+    # The format is multiple whitespace-separated strings,
+    # where each string is of the form name[/version].
+    server_version = "Deproxy/0.1"
+
+    # The default request version.  This only affects responses up until
+    # the point where the request line is parsed, so it mainly decides what
+    # the client gets back when sending a malformed request line.
+    # Most web servers default to HTTP 0.9, i.e. don't send a status line.
+    default_request_version = "HTTP/0.9"
+
+    # The version of the HTTP protocol we support.
+    # Set this to HTTP/1.1 to enable automatic keepalive
+    protocol_version = "HTTP/1.0"
+
+    # Disable nagle algoritm for this socket, if True.
+    # Use only when wbufsize != 0, to avoid small packets.
+    disable_nagle_algorithm = False
+
     def __init__(self, connection, client_address, server):
         if self.disable_nagle_algorithm:
             connection.setsockopt(socket.IPPROTO_TCP,
@@ -465,24 +487,6 @@ Error code explanation: %(code)s = %(explain)s."""
                 hh, mm, ss)
         return s
 
-    # The Python system version, truncated to its first component.
-    sys_version = "Python/" + sys.version.split()[0]
-
-    # The server software version.  You may want to override this.
-    # The format is multiple whitespace-separated strings,
-    # where each string is of the form name[/version].
-    server_version = "Deproxy/0.1"
-
-    # The default request version.  This only affects responses up until
-    # the point where the request line is parsed, so it mainly decides what
-    # the client gets back when sending a malformed request line.
-    # Most web servers default to HTTP 0.9, i.e. don't send a status line.
-    default_request_version = "HTTP/0.9"
-
-    # The version of the HTTP protocol we support.
-    # Set this to HTTP/1.1 to enable automatic keepalive
-    protocol_version = "HTTP/1.0"
-
     # Table mapping response codes to messages; entries have the
     # form {code: (shortmessage, longmessage)}.
     # See RFC 2616.
@@ -551,7 +555,3 @@ Error code explanation: %(code)s = %(explain)s."""
               'The gateway server did not receive a timely response'),
         505: ('HTTP Version Not Supported', 'Cannot fulfill request.'),
         }
-
-    # Disable nagle algoritm for this socket, if True.
-    # Use only when wbufsize != 0, to avoid small packets.
-    disable_nagle_algorithm = False
