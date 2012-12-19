@@ -552,14 +552,6 @@ Error code explanation: %(code)s = %(explain)s."""
         505: ('HTTP Version Not Supported', 'Cannot fulfill request.'),
         }
 
-    # Default buffer sizes for rfile, wfile.
-    # We default rfile to buffered because otherwise it could be
-    # really slow for large data (a getc() call per byte); we make
-    # wfile unbuffered because (a) often after a write() we want to
-    # read and we need to flush the line; (b) big writes to unbuffered
-    # files are typically optimized by stdio even when big reads
-    # aren't.
-
     # Disable nagle algoritm for this socket, if True.
     # Use only when wbufsize != 0, to avoid small packets.
     disable_nagle_algorithm = False
