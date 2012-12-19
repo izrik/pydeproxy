@@ -263,8 +263,6 @@ class DeproxyRequestHandler:
     # Use only when wbufsize != 0, to avoid small packets.
     disable_nagle_algorithm = False
 
-    close_connection = 1
-
     def __init__(self, connection, client_address, endpoint):
         if self.disable_nagle_algorithm:
             connection.setsockopt(socket.IPPROTO_TCP,
@@ -284,17 +282,17 @@ class DeproxyRequestHandler:
 
     def handle_one_request(self, rfile, wfile, endpoint):
         try:
-            self.close_connection = 1
+            close_connection = 1
             incoming_request = self.parse_request(rfile, wfile)
             if not incoming_request:
-                self.close_connection = 1
-                return self.close_connection
+                close_connection = 1
+                return close_connection
 
             if incoming_request.protocol == 'HTTP/1.1':
                 if self.protocol_version >= "HTTP/1.1":
-                    self.close_connection = 0
+                    close_connection = 0
 
-            self.close_connection = self.check_close_connection(incoming_request.headers)
+            close_connection = self.check_close_connection(incoming_request.headers)
 
             handler_function = default_handler
             message_chain = None
@@ -317,8 +315,8 @@ class DeproxyRequestHandler:
                                                     incoming_request,
                                                     outgoing_response))
 
-            if not self.close_connection:
-                self.close_connection = self.check_close_connection(resp.headers)
+            if not close_connection:
+                close_connection = self.check_close_connection(resp.headers)
 
             self.send_response(wfile, resp)
 
@@ -326,9 +324,9 @@ class DeproxyRequestHandler:
 
         except socket.timeout, e:
             #a read or a write timed out.    Discard this connection
-            self.close_connection = 1
+            close_connection = 1
 
-        return self.close_connection
+        return close_connection
 
     def parse_request(self, rfile, wfile):
         requestline = rfile.readline(65537)
