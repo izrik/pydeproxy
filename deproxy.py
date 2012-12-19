@@ -479,7 +479,8 @@ Error code explanation: %(code)s = %(explain)s."""
             if name.lower() == 'connection':
                 if value.lower() == 'close':
                     close_connection = 1
-                elif value.lower() == 'keep-alive':
+                elif (value.lower() == 'keep-alive' and
+                      self.protocol_version >= "HTTP/1.1"):
                     close_connection = 0
         return close_connection
 
