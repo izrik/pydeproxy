@@ -311,7 +311,11 @@ class DeproxyRequestHandler:
                                                     incoming_request,
                                                     outgoing_response))
 
-            self.close_connection = self.send_response(wfile, resp, self.close_connection)
+
+            self.close_connection = self.check_close_connection(resp.headers, 
+                                                            self.close_connection)
+
+            self.send_response(wfile, resp)
 
             wfile.flush()
 
@@ -430,9 +434,13 @@ Error code explanation: %(code)s = %(explain)s."""
 
         response = Response(request_version, code, message, headers, content)
 
-        self.close_connection = self.send_response(response, self.close_connection)
+        self.close_connection = self.check_close_connection(response.headers, 
+                                                        self.close_connection)
 
-    def send_response(self, wfile, response, close_connection):
+
+        self.send_response(response)
+
+    def send_response(self, wfile, response):
 
         message = response.message
         if message is None:
@@ -460,9 +468,6 @@ Error code explanation: %(code)s = %(explain)s."""
             if response.protocol != 'HTTP/0.9':
                 wfile.write("%s: %s\r\n" % (name, value))
 
-        close_connection = self.check_close_connection(response.headers, 
-                                                       close_connection)
-
         # Send the blank line ending the MIME headers.
         if response.protocol != 'HTTP/0.9':
             wfile.write("\r\n")
@@ -470,10 +475,8 @@ Error code explanation: %(code)s = %(explain)s."""
         # Send the response body
         wfile.write(response.body)
 
-        return close_connection
-
     def check_close_connection(self, headers, close_connection):
-        for name, value in headers.iteritems():
+        for name, value in headers.items():
             if name.lower() == 'connection':
                 if value.lower() == 'close':
                     close_connection = 1
