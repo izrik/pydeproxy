@@ -10,6 +10,17 @@ import select
 import sys
 import mimetools
 
+# The Python system version, truncated to its first component.
+python_version = "Python/" + sys.version.split()[0]
+
+# The server software version.
+# The format is multiple whitespace-separated strings,
+# where each string is of the form name[/version].
+deproxy_version = "Deproxy/0.1"
+
+version_string = deproxy_version + ' ' + python_version
+
+
 Request = collections.namedtuple('Request', ['method', 'path', 'headers',
                                              'body'])
 Response = collections.namedtuple('Response', ['code', 'message', 'headers',
@@ -237,14 +248,6 @@ class DeproxyEndpoint:
 
 class DeproxyRequestHandler:
 
-    # The Python system version, truncated to its first component.
-    sys_version = "Python/" + sys.version.split()[0]
-
-    # The server software version.  You may want to override this.
-    # The format is multiple whitespace-separated strings,
-    # where each string is of the form name[/version].
-    server_version = "Deproxy/0.1"
-
     # The default request version.  This only affects responses up until
     # the point where the request line is parsed, so it mainly decides what
     # the client gets back when sending a malformed request line.
@@ -446,7 +449,7 @@ Error code explanation: %(code)s = %(explain)s."""
             lowers[name_lower] = value
 
         if 'server' not in lowers:
-            headers['Server'] = self.version_string()
+            headers['Server'] = version_string
         if 'date' not in lowers:
             headers['Date'] = self.date_time_string()
 
@@ -465,10 +468,6 @@ Error code explanation: %(code)s = %(explain)s."""
 
         # Send the response body
         wfile.write(response.body)
-
-    def version_string(self):
-        """Return the server software version string."""
-        return self.server_version + ' ' + self.sys_version
 
     def date_time_string(self, timestamp=None):
         """Return the current date and time formatted for a message header."""
