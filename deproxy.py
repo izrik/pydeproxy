@@ -264,8 +264,8 @@ class DeproxyRequestHandler:
 
             handler_function = default_handler
             message_chain = None
-            if request_id_header_name in self.headers:
-                request_id = self.headers[request_id_header_name]
+            if request_id_header_name in incoming_request.headers:
+                request_id = incoming_request.headers[request_id_header_name]
                 message_chain = server.deproxy.get_message_chain(
                     request_id)
                 if message_chain:
@@ -273,7 +273,7 @@ class DeproxyRequestHandler:
 
             resp = handler_function(incoming_request)
 
-            if request_id_header_name in self.headers:
+            if request_id_header_name in incoming_request.headers:
                 resp.headers[request_id_header_name] = request_id
 
             outgoing_response = resp
@@ -353,15 +353,16 @@ class DeproxyRequestHandler:
         self.request_version = version
 
         # Examine the headers and look for a Connection directive
-        self.headers = self.MessageClass(rfile, 0)
+        headers = self.MessageClass(rfile, 0)
 
-        conntype = self.headers.get('Connection', "")
+        conntype = headers.get('Connection', "")
         if conntype.lower() == 'close':
             self.close_connection = 1
         elif (conntype.lower() == 'keep-alive' and
               self.protocol_version >= "HTTP/1.1"):
             self.close_connection = 0
-        return Request(method, path, self.headers, rfile)
+
+        return Request(method, path, headers, rfile)
 
     def send_error(self, wfile, code, method, message=None):
         """Send and log an error reply.
