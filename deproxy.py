@@ -160,7 +160,23 @@ class DeproxyEndpoint:
 
         """
         try:
-            self.DeproxyRequestHandler(request, client_address, self)
+            connection = request
+            endpoint = self
+            if self.disable_nagle_algorithm:
+                connection.setsockopt(socket.IPPROTO_TCP,
+                                           socket.TCP_NODELAY, True)
+            rfile = connection.makefile('rb', -1)
+            wfile = connection.makefile('wb', 0)
+
+            try:
+                close = self.handle_one_request(rfile, wfile, endpoint)
+                while not close:
+                    close = self.handle_one_request(rfile, wfile, endpoint)
+            finally:
+                if not wfile.closed:
+                    wfile.flush()
+                wfile.close()
+                rfile.close()
         except:
             self.handle_error(request, client_address)
         finally:
@@ -259,23 +275,6 @@ class DeproxyEndpoint:
     # Disable nagle algoritm for this socket, if True.
     # Use only when wbufsize != 0, to avoid small packets.
     disable_nagle_algorithm = False
-
-    def DeproxyRequestHandler(self, connection, client_address, endpoint):
-        if self.disable_nagle_algorithm:
-            connection.setsockopt(socket.IPPROTO_TCP,
-                                       socket.TCP_NODELAY, True)
-        rfile = connection.makefile('rb', -1)
-        wfile = connection.makefile('wb', 0)
-
-        try:
-            close = self.handle_one_request(rfile, wfile, endpoint)
-            while not close:
-                close = self.handle_one_request(rfile, wfile, endpoint)
-        finally:
-            if not wfile.closed:
-                wfile.flush()
-            wfile.close()
-            rfile.close()
 
     def handle_one_request(self, rfile, wfile, endpoint):
         try:
