@@ -10,4 +10,6 @@ R-3: Implement all requirements of the HTTP/0.9 protocol; see http://www.w3.org/
 # http://www.w3.org/Protocols/History.html
 # http://www.w3.org/Protocols/DesignIssues.html
 # http://www.w3.org/Protocols/Classic.html
+# http://www.w3.org/Protocols/
+# http://en.wikipedia.org/wiki/Hypertext_Transfer_Protocol
 
