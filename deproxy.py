@@ -164,7 +164,7 @@ class DeproxyEndpoint:
             endpoint = self
             if self.disable_nagle_algorithm:
                 connection.setsockopt(socket.IPPROTO_TCP,
-                                           socket.TCP_NODELAY, True)
+                                      socket.TCP_NODELAY, True)
             rfile = connection.makefile('rb', -1)
             wfile = connection.makefile('wb', 0)
 
@@ -285,7 +285,8 @@ class DeproxyEndpoint:
             close_connection = 1
             if incoming_request.protocol == 'HTTP/1.1':
                 if self.protocol_version >= "HTTP/1.1":
-                    close_connection = self.check_close_connection(incoming_request.headers)
+                    close_connection = self.check_close_connection(
+                        incoming_request.headers)
 
             handler_function = default_handler
             message_chain = None
@@ -313,7 +314,6 @@ class DeproxyEndpoint:
                 message_chain.add_handling(Handling(endpoint,
                                                     incoming_request,
                                                     outgoing_response))
-
 
             self.send_response(wfile, resp)
 
@@ -355,8 +355,9 @@ class DeproxyEndpoint:
         if len(words) == 3:
             [method, path, version] = words
             if version[:5] != 'HTTP/':
-                self.send_error(wfile, 400, method, self.default_request_version, "Bad request version (%r)" %
-                                version)
+                self.send_error(wfile, 400, method,
+                                self.default_request_version,
+                                "Bad request version (%r)" % version)
                 return ()
             try:
                 base_version_number = version.split('/', 1)[1]
@@ -371,28 +372,31 @@ class DeproxyEndpoint:
                     raise ValueError
                 version_number = int(version_number[0]), int(version_number[1])
             except (ValueError, IndexError):
-                self.send_error(wfile, 400, method, self.default_request_version, "Bad request version (%r)" %
-                                version)
+                self.send_error(wfile, 400, method,
+                                self.default_request_version,
+                                "Bad request version (%r)" % version)
                 return ()
         elif len(words) == 2:
             [method, path] = words
             version = self.default_request_version
             if method != 'GET':
-                self.send_error(wfile, 400, method, self.default_request_version, 
+                self.send_error(wfile, 400, method,
+                                self.default_request_version,
                                 "Bad HTTP/0.9 request type (%r)" % method)
                 return ()
         elif not words:
             return ()
         else:
-            self.send_error(wfile, 400, None, self.default_request_version, "Bad request syntax (%r)" %
-                            requestline)
+            self.send_error(wfile, 400, None,
+                            self.default_request_version,
+                            "Bad request syntax (%r)" % requestline)
             return ()
 
         if (version != 'HTTP/1.1' and
-            version != 'HTTP/1.0' and
-            version != 'HTTP/0.9'):
-            self.send_error(wfile, 505, method, self.default_request_version, 
-                      "Invalid HTTP Version (%s)" % version)
+                version != 'HTTP/1.0' and
+                version != 'HTTP/0.9'):
+            self.send_error(wfile, 505, method, self.default_request_version,
+                            "Invalid HTTP Version (%s)" % version)
             return ()
 
         # Examine the headers and look for a Connection directive
@@ -432,7 +436,7 @@ Error code explanation: %(code)s = %(explain)s."""
         headers = {
             'Content-Type': "text/html",
             'Connection': 'close',
-            }
+        }
 
         if method == 'HEAD' or code < 200 or code in (204, 304):
             content = ''
@@ -451,7 +455,7 @@ Error code explanation: %(code)s = %(explain)s."""
                 message = ''
         if response.protocol != 'HTTP/0.9':
             wfile.write("%s %d %s\r\n" %
-                             (response.protocol, response.code, message))
+                        (response.protocol, response.code, message))
 
         headers = dict(response.headers)
         lowers = {}
@@ -484,13 +488,12 @@ Error code explanation: %(code)s = %(explain)s."""
 
         weekdayname = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
         monthname = [None,
-                 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+                     'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-        s = "%s, %02d %3s %4d %02d:%02d:%02d GMT" % (
-                weekdayname[wd],
-                day, monthname[month], year,
-                hh, mm, ss)
+        s = "%s, %02d %3s %4d %02d:%02d:%02d GMT" % (weekdayname[wd], day,
+                                                     monthname[month], year,
+                                                     hh, mm, ss)
         return s
 
 # Table mapping response codes to messages; entries have the
@@ -560,4 +563,4 @@ messages_by_response_code = {
     504: ('Gateway Timeout',
           'The gateway server did not receive a timely response'),
     505: ('HTTP Version Not Supported', 'Cannot fulfill request.'),
-    }
+}
