@@ -312,7 +312,7 @@ class DeproxyRequestHandler:
                                                     incoming_request,
                                                     outgoing_response))
 
-            self.send_response(wfile, resp)
+            self.send_response(wfile, resp, self.request_version)
 
             wfile.flush()
 
@@ -324,13 +324,12 @@ class DeproxyRequestHandler:
     def parse_request(self, rfile, wfile):
         requestline = rfile.readline(65537)
         if len(requestline) > 65536:
-            self.request_version = ''
-            self.send_error(wfile, 414, None)
+            self.send_error(wfile, 414, None, self.default_request_version)
             return ()
         if not requestline:
             self.close_connection = 1
             return ()
-        self.request_version = version = self.default_request_version
+
         self.close_connection = 1
         if requestline[-2:] == '\r\n':
             requestline = requestline[:-2]
@@ -340,7 +339,7 @@ class DeproxyRequestHandler:
         if len(words) == 3:
             [method, path, version] = words
             if version[:5] != 'HTTP/':
-                self.send_error(wfile, 400, method, "Bad request version (%r)" %
+                self.send_error(wfile, 400, method, self.default_request_version, "Bad request version (%r)" %
                                 version)
                 return ()
             try:
@@ -356,29 +355,31 @@ class DeproxyRequestHandler:
                     raise ValueError
                 version_number = int(version_number[0]), int(version_number[1])
             except (ValueError, IndexError):
-                self.send_error(wfile, 400, method, "Bad request version (%r)" %
+                self.send_error(wfile, 400, method, self.default_request_version, "Bad request version (%r)" %
                                 version)
                 return ()
             if (version_number >= (1, 1) and
                     self.protocol_version >= "HTTP/1.1"):
                 self.close_connection = 0
             if version_number >= (2, 0):
-                self.send_error(wfile, 505, method,
+                self.send_error(wfile, 505, method, self.default_request_version, 
                           "Invalid HTTP Version (%s)" % base_version_number)
                 return ()
         elif len(words) == 2:
             [method, path] = words
+            version = self.default_request_version
             self.close_connection = 1
             if method != 'GET':
-                self.send_error(wfile, 400, method,
+                self.send_error(wfile, 400, method, self.default_request_version, 
                                 "Bad HTTP/0.9 request type (%r)" % method)
                 return ()
         elif not words:
             return ()
         else:
-            self.send_error(wfile, 400, None, "Bad request syntax (%r)" %
+            self.send_error(wfile, 400, None, self.default_request_version, "Bad request syntax (%r)" %
                             requestline)
             return ()
+
         self.request_version = version
 
         # Examine the headers and look for a Connection directive
@@ -393,7 +394,7 @@ class DeproxyRequestHandler:
 
         return Request(method, path, headers, rfile)
 
-    def send_error(self, wfile, code, method, message=None):
+    def send_error(self, wfile, code, method, request_version, message=None):
         """Send and log an error reply.
 
         Arguments are the error code, and a detailed message.
@@ -432,16 +433,16 @@ Error code explanation: %(code)s = %(explain)s."""
 
         response = Response(code, message, headers, content)
 
-        self.send_response(response)
+        self.send_response(response, request_version)
 
-    def send_response(self, wfile, response):
+    def send_response(self, wfile, response, request_version):
         message = response.message
         if message is None:
             if response.code in messages_by_response_code:
                 message = messages_by_response_code[response.code][0]
             else:
                 message = ''
-        if self.request_version != 'HTTP/0.9':
+        if request_version != 'HTTP/0.9':
             wfile.write("%s %d %s\r\n" %
                              (self.protocol_version, response.code, message))
 
@@ -458,7 +459,7 @@ Error code explanation: %(code)s = %(explain)s."""
             headers['Date'] = self.date_time_string()
 
         for name, value in headers.iteritems():
-            if self.request_version != 'HTTP/0.9':
+            if request_version != 'HTTP/0.9':
                 wfile.write("%s: %s\r\n" % (name, value))
             if name.lower() == 'connection':
                 if value.lower() == 'close':
@@ -467,7 +468,7 @@ Error code explanation: %(code)s = %(explain)s."""
                     self.close_connection = 0
 
         # Send the blank line ending the MIME headers.
-        if self.request_version != 'HTTP/0.9':
+        if request_version != 'HTTP/0.9':
             wfile.write("\r\n")
 
         # Send the response body
