@@ -238,8 +238,6 @@ class DeproxyEndpoint:
 class DeproxyRequestHandler:
 
     def __init__(self, request, client_address, server):
-        self.server = server
-
         connection = request
         if self.disable_nagle_algorithm:
             connection.setsockopt(socket.IPPROTO_TCP,
@@ -249,16 +247,16 @@ class DeproxyRequestHandler:
 
         try:
             self.close_connection = 1
-            self.handle_one_request(rfile, wfile)
+            self.handle_one_request(rfile, wfile, server)
             while not self.close_connection:
-                self.handle_one_request(rfile, wfile)
+                self.handle_one_request(rfile, wfile, server)
         finally:
             if not wfile.closed:
                 wfile.flush()
             wfile.close()
             rfile.close()
 
-    def handle_one_request(self, rfile, wfile):
+    def handle_one_request(self, rfile, wfile, server):
         try:
             incoming_request = self.parse_request(rfile, wfile)
             if not incoming_request:
@@ -269,7 +267,7 @@ class DeproxyRequestHandler:
             message_chain = None
             if request_id_header_name in self.headers:
                 request_id = self.headers[request_id_header_name]
-                message_chain = self.server.deproxy.get_message_chain(
+                message_chain = server.deproxy.get_message_chain(
                     request_id)
                 if message_chain:
                     handler_function = message_chain.handler_function
@@ -282,7 +280,7 @@ class DeproxyRequestHandler:
             outgoing_response = resp
 
             if message_chain is not None:
-                message_chain.add_handling(Handling(self.server,
+                message_chain.add_handling(Handling(server,
                                                     incoming_request,
                                                     outgoing_response))
 
