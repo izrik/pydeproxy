@@ -466,13 +466,16 @@ Error code explanation: %(code)s = %(explain)s."""
         wfile.write(response.body)
 
     def check_close_connection(self, headers, close_connection):
-        for name, value in headers.items():
-            if name.lower() == 'connection':
-                if value.lower() == 'close':
-                    close_connection = 1
-                elif (value.lower() == 'keep-alive' and
-                      self.protocol_version >= "HTTP/1.1"):
-                    close_connection = 0
+        if self.protocol_version >= "HTTP/1.1":
+            for name, value in headers.items():
+                if name.lower() == 'connection':
+                    if value.lower() == 'close':
+                        close_connection = 1
+                    elif value.lower() == 'keep-alive':
+                        close_connection = 0
+        else:
+            return 1
+
         return close_connection
 
     def date_time_string(self, timestamp=None):
