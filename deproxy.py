@@ -264,18 +264,15 @@ class DeproxyRequestHandler:
             requestline = rfile.readline(65537)
             if len(requestline) > 65536:
                 self.request_version = ''
-                self.command = ''
-                self.send_error(wfile, 414)
+                self.send_error(wfile, 414, None)
                 return
             if not requestline:
                 self.close_connection = 1
                 return
-            if not self.parse_request(rfile, wfile, requestline):
+            incoming_request = self.parse_request(rfile, wfile, requestline)
+            if not incoming_request:
                 # An error code has been sent, just exit
                 return
-
-            incoming_request = Request(self.command, self.path, self.headers,
-                                       rfile)
 
             handler_function = default_handler
             message_chain = None
@@ -308,17 +305,6 @@ class DeproxyRequestHandler:
             return
 
     def parse_request(self, rfile, wfile, requestline):
-        """Parse a request (internal).
-
-        The request should be stored in self.raw_requestline; the results
-        are in self.command, self.path, self.request_version and
-        self.headers.
-
-        Return True for success, False for failure; on failure, an
-        error is sent back.
-
-        """
-        self.command = None  # set in case of error on the first line
         self.request_version = version = self.default_request_version
         self.close_connection = 1
         if requestline[-2:] == '\r\n':
@@ -329,7 +315,7 @@ class DeproxyRequestHandler:
         if len(words) == 3:
             [command, path, version] = words
             if version[:5] != 'HTTP/':
-                self.send_error(wfile, 400, "Bad request version (%r)" %
+                self.send_error(wfile, 400, command, "Bad request version (%r)" %
                                 version)
                 return ()
             try:
@@ -345,30 +331,30 @@ class DeproxyRequestHandler:
                     raise ValueError
                 version_number = int(version_number[0]), int(version_number[1])
             except (ValueError, IndexError):
-                self.send_error(wfile, 400, "Bad request version (%r)" %
+                self.send_error(wfile, 400, command, "Bad request version (%r)" %
                                 version)
                 return ()
             if (version_number >= (1, 1) and
                     self.protocol_version >= "HTTP/1.1"):
                 self.close_connection = 0
             if version_number >= (2, 0):
-                self.send_error(wfile, 505,
+                self.send_error(wfile, 505, command,
                           "Invalid HTTP Version (%s)" % base_version_number)
                 return ()
         elif len(words) == 2:
             [command, path] = words
             self.close_connection = 1
             if command != 'GET':
-                self.send_error(wfile, 400,
+                self.send_error(wfile, 400, command,
                                 "Bad HTTP/0.9 request type (%r)" % command)
                 return ()
         elif not words:
             return ()
         else:
-            self.send_error(wfile, 400, "Bad request syntax (%r)" %
+            self.send_error(wfile, 400, None, "Bad request syntax (%r)" %
                             requestline)
             return ()
-        self.command, self.path, self.request_version = command, path, version
+        self.request_version = version
 
         # Examine the headers and look for a Connection directive
         self.headers = self.MessageClass(rfile, 0)
@@ -379,10 +365,9 @@ class DeproxyRequestHandler:
         elif (conntype.lower() == 'keep-alive' and
               self.protocol_version >= "HTTP/1.1"):
             self.close_connection = 0
-        return Request(self.command, self.path, self.headers,
-                                       rfile)
+        return Request(command, path, self.headers, rfile)
 
-    def send_error(self, wfile, code, message=None):
+    def send_error(self, wfile, code, method, message=None):
         """Send and log an error reply.
 
         Arguments are the error code, and a detailed message.
@@ -413,7 +398,7 @@ class DeproxyRequestHandler:
             'Connection': 'close',
             }
 
-        if self.command == 'HEAD' or code < 200 or code in (204, 304):
+        if method == 'HEAD' or code < 200 or code in (204, 304):
             content = ''
 
         response = Response(code, message, headers, content)
