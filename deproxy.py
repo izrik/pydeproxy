@@ -453,9 +453,15 @@ Error code explanation: %(code)s = %(explain)s."""
         if timestamp is None:
             timestamp = time.time()
         year, month, day, hh, mm, ss, wd, y, z = time.gmtime(timestamp)
+
+        weekdayname = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+        monthname = [None,
+                 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
         s = "%s, %02d %3s %4d %02d:%02d:%02d GMT" % (
-                self.weekdayname[wd],
-                day, self.monthname[month], year,
+                weekdayname[wd],
+                day, monthname[month], year,
                 hh, mm, ss)
         return s
 
@@ -472,14 +478,6 @@ Error code explanation: %(code)s = %(explain)s."""
     # the client gets back when sending a malformed request line.
     # Most web servers default to HTTP 0.9, i.e. don't send a status line.
     default_request_version = "HTTP/0.9"
-
-    weekdayname = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-
-    monthname = [None,
-                 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-
-    # Essentially static class variables
 
     # The version of the HTTP protocol we support.
     # Set this to HTTP/1.1 to enable automatic keepalive
