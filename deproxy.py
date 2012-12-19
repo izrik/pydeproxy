@@ -289,16 +289,22 @@ class DeproxyEndpoint:
 
             handler_function = default_handler
             message_chain = None
-            if request_id_header_name in incoming_request.headers:
-                request_id = incoming_request.headers[request_id_header_name]
-                message_chain = endpoint.deproxy.get_message_chain(
-                    request_id)
-                if message_chain:
-                    handler_function = message_chain.handler_function
+            request_id = None
+            for name, value in incoming_request.headers.items():
+                if name.lower() == request_id_header_name.lower():
+                    request_id = value
+                    message_chain = endpoint.deproxy.get_message_chain(
+                        request_id)
+                    if message_chain:
+                        handler_function = message_chain.handler_function
 
             resp = handler_function(incoming_request)
 
-            if request_id_header_name in incoming_request.headers:
+            found = False
+            for name, value in resp.headers.items():
+                if name.lower() == request_id_header_name.lower():
+                    found = True
+            if not found:
                 resp.headers[request_id_header_name] = request_id
 
             outgoing_response = resp
