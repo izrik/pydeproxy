@@ -45,7 +45,7 @@ def delay_and_then(seconds, handler_function):
         return handler_function(request)
     return delay
 
-request_id_header_name = 'Request-ID'
+request_id_header_name = 'Deproxy-Request-ID'
 
 
 class MessageChain:
