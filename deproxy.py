@@ -261,15 +261,7 @@ class DeproxyRequestHandler:
 
     def handle_one_request(self, rfile, wfile):
         try:
-            requestline = rfile.readline(65537)
-            if len(requestline) > 65536:
-                self.request_version = ''
-                self.send_error(wfile, 414, None)
-                return
-            if not requestline:
-                self.close_connection = 1
-                return
-            incoming_request = self.parse_request(rfile, wfile, requestline)
+            incoming_request = self.parse_request(rfile, wfile)
             if not incoming_request:
                 # An error code has been sent, just exit
                 return
@@ -304,7 +296,15 @@ class DeproxyRequestHandler:
             self.close_connection = 1
             return
 
-    def parse_request(self, rfile, wfile, requestline):
+    def parse_request(self, rfile, wfile):
+        requestline = rfile.readline(65537)
+        if len(requestline) > 65536:
+            self.request_version = ''
+            self.send_error(wfile, 414, None)
+            return ()
+        if not requestline:
+            self.close_connection = 1
+            return ()
         self.request_version = version = self.default_request_version
         self.close_connection = 1
         if requestline[-2:] == '\r\n':
