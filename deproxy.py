@@ -153,7 +153,7 @@ class DeproxyEndpoint:
     ### ThreadingMixIn
     daemon_threads = False
 
-    def process_request_thread(self, request, client_address):
+    def process_new_connection(self, request, client_address):
         """Same as in BaseServer but as a thread.
 
         In addition, exception handling is done here.
@@ -225,7 +225,7 @@ class DeproxyEndpoint:
 
                     try:
                         t = threading.Thread(
-                            target=self.process_request_thread,
+                            target=self.process_new_connection,
                             args=(request, client_address))
                         if self.daemon_threads:
                             t.setDaemon(1)
