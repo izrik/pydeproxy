@@ -1,0 +1,13 @@
+
+# List of functional requirements which deproxy shall satisfy. This list will 
+# be expanded upon and refined in the future.
+
+R-1: Satisfy all requirements of the HTTP/1.1 standard; see http://tools.ietf.org/html/rfc2616
+R-2: Satisfy all requirements of the HTTP/1.0 standard; see http://tools.ietf.org/html/rfc1945
+R-3: Implement all requirements of the HTTP/0.9 protocol; see http://www.w3.org/Protocols/HTTP/AsImplemented.html
+
+# Additional information:
+# http://www.w3.org/Protocols/History.html
+# http://www.w3.org/Protocols/DesignIssues.html
+# http://www.w3.org/Protocols/Classic.html
+
