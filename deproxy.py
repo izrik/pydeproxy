@@ -386,12 +386,15 @@ class DeproxyRequestHandler:
         explain = long
         # using _quote_html to prevent Cross Site Scripting attacks
         # (see bug #1100201)
-        content = (self.error_message_format %
-                   {'code': code, 'message': _quote_html(message),
+        error_message_format = """Error code %(code)d.
+Message: %(message)s.
+Error code explanation: %(code)s = %(explain)s."""
+        content = (error_message_format %
+                   {'code': code, 'message': message,
                     'explain': explain})
 
         headers = {
-            'Content-Type': self.error_content_type,
+            'Content-Type': "text/html",
             'Connection': 'close',
             }
 
@@ -469,23 +472,6 @@ class DeproxyRequestHandler:
     # the client gets back when sending a malformed request line.
     # Most web servers default to HTTP 0.9, i.e. don't send a status line.
     default_request_version = "HTTP/0.9"
-
-    DEFAULT_ERROR_MESSAGE = """\
-<head>
-<title>Error response</title>
-</head>
-<body>
-<h1>Error response</h1>
-<p>Error code %(code)d.
-<p>Message: %(message)s.
-<p>Error code explanation: %(code)s = %(explain)s.
-</body>
-"""
-
-    DEFAULT_ERROR_CONTENT_TYPE = "text/html"
-
-    error_message_format = DEFAULT_ERROR_MESSAGE
-    error_content_type = DEFAULT_ERROR_CONTENT_TYPE
 
     weekdayname = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
