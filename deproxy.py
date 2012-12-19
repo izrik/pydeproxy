@@ -295,8 +295,7 @@ class DeproxyRequestHandler:
                 if self.protocol_version >= "HTTP/1.1":
                     self.close_connection = 0
 
-            self.close_connection = self.check_close_connection(incoming_request.headers, 
-                                                            self.close_connection)
+            self.close_connection = self.check_close_connection(incoming_request.headers)
 
             handler_function = default_handler
             message_chain = None
@@ -319,9 +318,8 @@ class DeproxyRequestHandler:
                                                     incoming_request,
                                                     outgoing_response))
 
-
-            self.close_connection = self.check_close_connection(resp.headers, 
-                                                            self.close_connection)
+            if not self.close_connection:
+                self.close_connection = self.check_close_connection(resp.headers)
 
             self.send_response(wfile, resp)
 
@@ -469,18 +467,18 @@ Error code explanation: %(code)s = %(explain)s."""
         # Send the response body
         wfile.write(response.body)
 
-    def check_close_connection(self, headers, close_connection):
+    def check_close_connection(self, headers):
         if self.protocol_version >= "HTTP/1.1":
             for name, value in headers.items():
                 if name.lower() == 'connection':
                     if value.lower() == 'close':
-                        close_connection = 1
+                        return 1
                     elif value.lower() == 'keep-alive':
-                        close_connection = 0
+                        return 0
         else:
             return 1
 
-        return close_connection
+        return 0
 
     def date_time_string(self, timestamp=None):
         """Return the current date and time formatted for a message header."""
