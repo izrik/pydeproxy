@@ -238,7 +238,6 @@ class DeproxyEndpoint:
 class DeproxyRequestHandler:
 
     def __init__(self, request, client_address, server):
-        self.client_address = client_address
         self.server = server
 
         connection = request
