@@ -10,10 +10,21 @@ import select
 import sys
 import mimetools
 
-Request = collections.namedtuple('Request', ['method', 'path', 'headers',
-                                             'body'])
-Response = collections.namedtuple('Response', ['code', 'message', 'headers',
-                                               'body'])
+# The Python system version, truncated to its first component.
+python_version = "Python/" + sys.version.split()[0]
+
+# The server software version.
+# The format is multiple whitespace-separated strings,
+# where each string is of the form name[/version].
+deproxy_version = "Deproxy/0.1"
+
+version_string = deproxy_version + ' ' + python_version
+
+
+Request = collections.namedtuple('Request', ['method', 'path', 'protocol',
+                                             'headers', 'body'])
+Response = collections.namedtuple('Response', ['protocol', 'code', 'message',
+                                               'headers', 'body'])
 Handling = collections.namedtuple('Handling', ['endpoint', 'request',
                                                'response'])
 
@@ -21,11 +32,11 @@ Handling = collections.namedtuple('Handling', ['endpoint', 'request',
 def default_handler(request):
     # returns a Response, comprised of status_code, status_message,
     # headers (list of key/value pairs), response_body (text or stream)
-    return Response(200, 'OK', {}, '')
+    return Response('HTTP/1.0', 200, 'OK', {}, '')
 
 
 def echo_handler(request):
-    return Response(200, 'OK', request.headers, request.body)
+    return Response('HTTP/1.0', 200, 'OK', request.headers, request.body)
 
 
 def delay_and_then(seconds, handler_function):
@@ -74,8 +85,9 @@ class Deproxy:
         self.del_message_chain(request_id)
 
         message_chain.sent_request = Request(req.method, req.path_url,
-                                             req.headers, req.data)
-        message_chain.received_response = Response(resp.status_code,
+                                             'HTTP/1.0', req.headers, req.data)
+        message_chain.received_response = Response('HTTP/1.0',
+                                                   resp.status_code,
                                                    resp.raw.reason,
                                                    resp.headers,
                                                    resp.text)
@@ -141,14 +153,30 @@ class DeproxyEndpoint:
     ### ThreadingMixIn
     daemon_threads = False
 
-    def process_request_thread(self, request, client_address):
+    def process_new_connection(self, request, client_address):
         """Same as in BaseServer but as a thread.
 
         In addition, exception handling is done here.
 
         """
         try:
-            DeproxyRequestHandler(request, client_address, self)
+            connection = request
+            endpoint = self
+            if self.disable_nagle_algorithm:
+                connection.setsockopt(socket.IPPROTO_TCP,
+                                           socket.TCP_NODELAY, True)
+            rfile = connection.makefile('rb', -1)
+            wfile = connection.makefile('wb', 0)
+
+            try:
+                close = self.handle_one_request(rfile, wfile, endpoint)
+                while not close:
+                    close = self.handle_one_request(rfile, wfile, endpoint)
+            finally:
+                if not wfile.closed:
+                    wfile.flush()
+                wfile.close()
+                rfile.close()
         except:
             self.handle_error(request, client_address)
         finally:
@@ -197,7 +225,7 @@ class DeproxyEndpoint:
 
                     try:
                         t = threading.Thread(
-                            target=self.process_request_thread,
+                            target=self.process_new_connection,
                             args=(request, client_address))
                         if self.daemon_threads:
                             t.setDaemon(1)
@@ -234,113 +262,96 @@ class DeproxyEndpoint:
         traceback.print_exc()  # XXX But this goes to stderr!
         print '-' * 40
 
+    # The default request version.  This only affects responses up until
+    # the point where the request line is parsed, so it mainly decides what
+    # the client gets back when sending a malformed request line.
+    # Most web servers default to HTTP 0.9, i.e. don't send a status line.
+    default_request_version = "HTTP/0.9"
 
-class DeproxyRequestHandler:
+    # The version of the HTTP protocol we support.
+    # Set this to HTTP/1.1 to enable automatic keepalive
+    protocol_version = "HTTP/1.0"
 
-    def __init__(self, request, client_address, server):
-        self.request = request
-        self.client_address = client_address
-        self.server = server
+    # Disable nagle algoritm for this socket, if True.
+    # Use only when wbufsize != 0, to avoid small packets.
+    disable_nagle_algorithm = False
 
-        self.connection = self.request
-        if self.timeout is not None:
-            self.connection.settimeout(self.timeout)
-        if self.disable_nagle_algorithm:
-            self.connection.setsockopt(socket.IPPROTO_TCP,
-                                       socket.TCP_NODELAY, True)
-        self.rfile = self.connection.makefile('rb', self.rbufsize)
-        self.wfile = self.connection.makefile('wb', self.wbufsize)
-
+    def handle_one_request(self, rfile, wfile, endpoint):
         try:
-            self.close_connection = 1
-            self.handle_one_request()
-            while not self.close_connection:
-                self.handle_one_request()
-        finally:
-            if not self.wfile.closed:
-                self.wfile.flush()
-            self.wfile.close()
-            self.rfile.close()
+            incoming_request = self.parse_request(rfile, wfile)
+            if not incoming_request:
+                return 1
 
-    def handle_one_request(self):
-        try:
-            self.raw_requestline = self.rfile.readline(65537)
-            if len(self.raw_requestline) > 65536:
-                self.requestline = ''
-                self.request_version = ''
-                self.command = ''
-                self.send_error(414)
-                return
-            if not self.raw_requestline:
-                self.close_connection = 1
-                return
-            if not self.parse_request():
-                # An error code has been sent, just exit
-                return
-
-            incoming_request = Request(self.command, self.path, self.headers,
-                                       self.rfile)
+            close_connection = 1
+            if incoming_request.protocol == 'HTTP/1.1':
+                if self.protocol_version >= "HTTP/1.1":
+                    close_connection = self.check_close_connection(incoming_request.headers)
 
             handler_function = default_handler
             message_chain = None
-            if request_id_header_name in self.headers:
-                request_id = self.headers[request_id_header_name]
-                message_chain = self.server.deproxy.get_message_chain(
+            if request_id_header_name in incoming_request.headers:
+                request_id = incoming_request.headers[request_id_header_name]
+                message_chain = endpoint.deproxy.get_message_chain(
                     request_id)
                 if message_chain:
                     handler_function = message_chain.handler_function
 
             resp = handler_function(incoming_request)
 
-            if request_id_header_name in self.headers:
+            if request_id_header_name in incoming_request.headers:
                 resp.headers[request_id_header_name] = request_id
 
             outgoing_response = resp
 
             if message_chain is not None:
-                message_chain.add_handling(Handling(self.server,
+                message_chain.add_handling(Handling(endpoint,
                                                     incoming_request,
                                                     outgoing_response))
 
-            self.send_response(resp.code, resp.message)
-            for name, value in resp.headers.items():
-                self.send_header(name, value)
-            self.end_headers()
-            self.wfile.write(resp.body)
 
-            self.wfile.flush()
+            self.send_response(wfile, resp)
+
+            wfile.flush()
+
+            if not close_connection:
+                return self.check_close_connection(resp.headers)
 
         except socket.timeout, e:
-            #a read or a write timed out.    Discard this connection
-            self.close_connection = 1
-            return
+            pass
 
-    def parse_request(self):
-        """Parse a request (internal).
+        return 1
 
-        The request should be stored in self.raw_requestline; the results
-        are in self.command, self.path, self.request_version and
-        self.headers.
+    def check_close_connection(self, headers):
+        if self.protocol_version >= "HTTP/1.1":
+            for name, value in headers.items():
+                if name.lower() == 'connection':
+                    if value.lower() == 'close':
+                        return 1
+                    elif value.lower() == 'keep-alive':
+                        return 0
+        else:
+            return 1
+        return 0
 
-        Return True for success, False for failure; on failure, an
-        error is sent back.
+    def parse_request(self, rfile, wfile):
+        requestline = rfile.readline(65537)
+        if len(requestline) > 65536:
+            self.send_error(wfile, 414, None, self.default_request_version)
+            return ()
+        if not requestline:
+            return ()
 
-        """
-        self.command = None  # set in case of error on the first line
-        self.request_version = version = self.default_request_version
-        self.close_connection = 1
-        requestline = self.raw_requestline
         if requestline[-2:] == '\r\n':
             requestline = requestline[:-2]
         elif requestline[-1:] == '\n':
             requestline = requestline[:-1]
-        self.requestline = requestline
         words = requestline.split()
         if len(words) == 3:
-            [command, path, version] = words
+            [method, path, version] = words
             if version[:5] != 'HTTP/':
-                self.send_error(400, "Bad request version (%r)" % version)
-                return False
+                self.send_error(wfile, 400, method, self.default_request_version, "Bad request version (%r)" %
+                                version)
+                return ()
             try:
                 base_version_number = version.split('/', 1)[1]
                 version_number = base_version_number.split(".")
@@ -354,41 +365,36 @@ class DeproxyRequestHandler:
                     raise ValueError
                 version_number = int(version_number[0]), int(version_number[1])
             except (ValueError, IndexError):
-                self.send_error(400, "Bad request version (%r)" % version)
-                return False
-            if (version_number >= (1, 1) and
-                    self.protocol_version >= "HTTP/1.1"):
-                self.close_connection = 0
-            if version_number >= (2, 0):
-                self.send_error(505,
-                          "Invalid HTTP Version (%s)" % base_version_number)
-                return False
+                self.send_error(wfile, 400, method, self.default_request_version, "Bad request version (%r)" %
+                                version)
+                return ()
         elif len(words) == 2:
-            [command, path] = words
-            self.close_connection = 1
-            if command != 'GET':
-                self.send_error(400,
-                                "Bad HTTP/0.9 request type (%r)" % command)
-                return False
+            [method, path] = words
+            version = self.default_request_version
+            if method != 'GET':
+                self.send_error(wfile, 400, method, self.default_request_version, 
+                                "Bad HTTP/0.9 request type (%r)" % method)
+                return ()
         elif not words:
-            return False
+            return ()
         else:
-            self.send_error(400, "Bad request syntax (%r)" % requestline)
-            return False
-        self.command, self.path, self.request_version = command, path, version
+            self.send_error(wfile, 400, None, self.default_request_version, "Bad request syntax (%r)" %
+                            requestline)
+            return ()
+
+        if (version != 'HTTP/1.1' and
+            version != 'HTTP/1.0' and
+            version != 'HTTP/0.9'):
+            self.send_error(wfile, 505, method, self.default_request_version, 
+                      "Invalid HTTP Version (%s)" % version)
+            return ()
 
         # Examine the headers and look for a Connection directive
-        self.headers = self.MessageClass(self.rfile, 0)
+        headers = mimetools.Message(rfile, 0)
 
-        conntype = self.headers.get('Connection', "")
-        if conntype.lower() == 'close':
-            self.close_connection = 1
-        elif (conntype.lower() == 'keep-alive' and
-              self.protocol_version >= "HTTP/1.1"):
-            self.close_connection = 0
-        return True
+        return Request(method, path, version, headers, rfile)
 
-    def send_error(self, code, message=None):
+    def send_error(self, wfile, code, method, request_version, message=None):
         """Send and log an error reply.
 
         Arguments are the error code, and a detailed message.
@@ -402,7 +408,7 @@ class DeproxyRequestHandler:
         """
 
         try:
-            short, long = self.responses[code]
+            short, long = messages_by_response_code[code]
         except KeyError:
             short, long = '???', '???'
         if message is None:
@@ -410,196 +416,142 @@ class DeproxyRequestHandler:
         explain = long
         # using _quote_html to prevent Cross Site Scripting attacks
         # (see bug #1100201)
-        content = (self.error_message_format %
-                   {'code': code, 'message': _quote_html(message),
+        error_message_format = """Error code %(code)d.
+Message: %(message)s.
+Error code explanation: %(code)s = %(explain)s."""
+        content = (error_message_format %
+                   {'code': code, 'message': message,
                     'explain': explain})
-        self.send_response(code, message)
-        self.send_header("Content-Type", self.error_content_type)
-        self.send_header('Connection', 'close')
-        self.end_headers()
-        if self.command != 'HEAD' and code >= 200 and code not in (204, 304):
-            self.wfile.write(content)
 
-    def send_response(self, code, message=None):
-        """Send the response header and log the response code.
+        headers = {
+            'Content-Type': "text/html",
+            'Connection': 'close',
+            }
 
-        Also send two standard headers with the server software
-        version and the current date.
+        if method == 'HEAD' or code < 200 or code in (204, 304):
+            content = ''
 
-        """
+        response = Response(request_version, code, message, headers, content)
+
+        self.send_response(response)
+
+    def send_response(self, wfile, response):
+
+        message = response.message
         if message is None:
-            if code in self.responses:
-                message = self.responses[code][0]
+            if response.code in messages_by_response_code:
+                message = messages_by_response_code[response.code][0]
             else:
                 message = ''
-        if self.request_version != 'HTTP/0.9':
-            self.wfile.write("%s %d %s\r\n" %
-                             (self.protocol_version, code, message))
-            # print (self.protocol_version, code, message)
-        self.send_header('Server', self.version_string())
-        self.send_header('Date', self.date_time_string())
+        if response.protocol != 'HTTP/0.9':
+            wfile.write("%s %d %s\r\n" %
+                             (response.protocol, response.code, message))
 
-    def send_header(self, keyword, value):
-        """Send a MIME header."""
-        if self.request_version != 'HTTP/0.9':
-            self.wfile.write("%s: %s\r\n" % (keyword, value))
+        headers = dict(response.headers)
+        lowers = {}
 
-        if keyword.lower() == 'connection':
-            if value.lower() == 'close':
-                self.close_connection = 1
-            elif value.lower() == 'keep-alive':
-                self.close_connection = 0
+        for name, value in response.headers.items():
+            name_lower = name.lower()
+            lowers[name_lower] = value
 
-    def end_headers(self):
-        """Send the blank line ending the MIME headers."""
-        if self.request_version != 'HTTP/0.9':
-            self.wfile.write("\r\n")
+        if 'server' not in lowers:
+            headers['Server'] = version_string
+        if 'date' not in lowers:
+            headers['Date'] = self.date_time_string()
 
-    def version_string(self):
-        """Return the server software version string."""
-        return self.server_version + ' ' + self.sys_version
+        for name, value in headers.iteritems():
+            if response.protocol != 'HTTP/0.9':
+                wfile.write("%s: %s\r\n" % (name, value))
+
+        # Send the blank line ending the MIME headers.
+        if response.protocol != 'HTTP/0.9':
+            wfile.write("\r\n")
+
+        # Send the response body
+        wfile.write(response.body)
 
     def date_time_string(self, timestamp=None):
         """Return the current date and time formatted for a message header."""
         if timestamp is None:
             timestamp = time.time()
         year, month, day, hh, mm, ss, wd, y, z = time.gmtime(timestamp)
-        s = "%s, %02d %3s %4d %02d:%02d:%02d GMT" % (
-                self.weekdayname[wd],
-                day, self.monthname[month], year,
-                hh, mm, ss)
-        return s
 
-    # The Python system version, truncated to its first component.
-    sys_version = "Python/" + sys.version.split()[0]
-
-    # The server software version.  You may want to override this.
-    # The format is multiple whitespace-separated strings,
-    # where each string is of the form name[/version].
-    server_version = "Deproxy/0.1"
-
-    # The default request version.  This only affects responses up until
-    # the point where the request line is parsed, so it mainly decides what
-    # the client gets back when sending a malformed request line.
-    # Most web servers default to HTTP 0.9, i.e. don't send a status line.
-    default_request_version = "HTTP/0.9"
-
-    DEFAULT_ERROR_MESSAGE = """\
-<head>
-<title>Error response</title>
-</head>
-<body>
-<h1>Error response</h1>
-<p>Error code %(code)d.
-<p>Message: %(message)s.
-<p>Error code explanation: %(code)s = %(explain)s.
-</body>
-"""
-
-    DEFAULT_ERROR_CONTENT_TYPE = "text/html"
-
-    error_message_format = DEFAULT_ERROR_MESSAGE
-    error_content_type = DEFAULT_ERROR_CONTENT_TYPE
-
-    weekdayname = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-
-    monthname = [None,
+        weekdayname = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+        monthname = [None,
                  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
                  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-    # Essentially static class variables
+        s = "%s, %02d %3s %4d %02d:%02d:%02d GMT" % (
+                weekdayname[wd],
+                day, monthname[month], year,
+                hh, mm, ss)
+        return s
 
-    # The version of the HTTP protocol we support.
-    # Set this to HTTP/1.1 to enable automatic keepalive
-    protocol_version = "HTTP/1.0"
+# Table mapping response codes to messages; entries have the
+# form {code: (shortmessage, longmessage)}.
+# See RFC 2616.
+messages_by_response_code = {
+    100: ('Continue', 'Request received, please continue'),
+    101: ('Switching Protocols',
+          'Switching to new protocol; obey Upgrade header'),
 
-    # The Message-like class used to parse headers
-    MessageClass = mimetools.Message
+    200: ('OK', 'Request fulfilled, document follows'),
+    201: ('Created', 'Document created, URL follows'),
+    202: ('Accepted',
+          'Request accepted, processing continues off-line'),
+    203: ('Non-Authoritative Information', 'Request fulfilled from cache'),
+    204: ('No Content', 'Request fulfilled, nothing follows'),
+    205: ('Reset Content', 'Clear input form for further input.'),
+    206: ('Partial Content', 'Partial content follows.'),
 
-    # Table mapping response codes to messages; entries have the
-    # form {code: (shortmessage, longmessage)}.
-    # See RFC 2616.
-    responses = {
-        100: ('Continue', 'Request received, please continue'),
-        101: ('Switching Protocols',
-              'Switching to new protocol; obey Upgrade header'),
+    300: ('Multiple Choices',
+          'Object has several resources -- see URI list'),
+    301: ('Moved Permanently', 'Object moved permanently -- see URI list'),
+    302: ('Found', 'Object moved temporarily -- see URI list'),
+    303: ('See Other', 'Object moved -- see Method and URL list'),
+    304: ('Not Modified',
+          'Document has not changed since given time'),
+    305: ('Use Proxy',
+          'You must use proxy specified in Location to access this '
+          'resource.'),
+    307: ('Temporary Redirect',
+          'Object moved temporarily -- see URI list'),
 
-        200: ('OK', 'Request fulfilled, document follows'),
-        201: ('Created', 'Document created, URL follows'),
-        202: ('Accepted',
-              'Request accepted, processing continues off-line'),
-        203: ('Non-Authoritative Information', 'Request fulfilled from cache'),
-        204: ('No Content', 'Request fulfilled, nothing follows'),
-        205: ('Reset Content', 'Clear input form for further input.'),
-        206: ('Partial Content', 'Partial content follows.'),
+    400: ('Bad Request',
+          'Bad request syntax or unsupported method'),
+    401: ('Unauthorized',
+          'No permission -- see authorization schemes'),
+    402: ('Payment Required',
+          'No payment -- see charging schemes'),
+    403: ('Forbidden',
+          'Request forbidden -- authorization will not help'),
+    404: ('Not Found', 'Nothing matches the given URI'),
+    405: ('Method Not Allowed',
+          'Specified method is invalid for this resource.'),
+    406: ('Not Acceptable', 'URI not available in preferred format.'),
+    407: ('Proxy Authentication Required', 'You must authenticate with '
+          'this proxy before proceeding.'),
+    408: ('Request Timeout', 'Request timed out; try again later.'),
+    409: ('Conflict', 'Request conflict.'),
+    410: ('Gone',
+          'URI no longer exists and has been permanently removed.'),
+    411: ('Length Required', 'Client must specify Content-Length.'),
+    412: ('Precondition Failed', 'Precondition in headers is false.'),
+    413: ('Request Entity Too Large', 'Entity is too large.'),
+    414: ('Request-URI Too Long', 'URI is too long.'),
+    415: ('Unsupported Media Type', 'Entity body in unsupported format.'),
+    416: ('Requested Range Not Satisfiable',
+          'Cannot satisfy request range.'),
+    417: ('Expectation Failed',
+          'Expect condition could not be satisfied.'),
 
-        300: ('Multiple Choices',
-              'Object has several resources -- see URI list'),
-        301: ('Moved Permanently', 'Object moved permanently -- see URI list'),
-        302: ('Found', 'Object moved temporarily -- see URI list'),
-        303: ('See Other', 'Object moved -- see Method and URL list'),
-        304: ('Not Modified',
-              'Document has not changed since given time'),
-        305: ('Use Proxy',
-              'You must use proxy specified in Location to access this '
-              'resource.'),
-        307: ('Temporary Redirect',
-              'Object moved temporarily -- see URI list'),
-
-        400: ('Bad Request',
-              'Bad request syntax or unsupported method'),
-        401: ('Unauthorized',
-              'No permission -- see authorization schemes'),
-        402: ('Payment Required',
-              'No payment -- see charging schemes'),
-        403: ('Forbidden',
-              'Request forbidden -- authorization will not help'),
-        404: ('Not Found', 'Nothing matches the given URI'),
-        405: ('Method Not Allowed',
-              'Specified method is invalid for this resource.'),
-        406: ('Not Acceptable', 'URI not available in preferred format.'),
-        407: ('Proxy Authentication Required', 'You must authenticate with '
-              'this proxy before proceeding.'),
-        408: ('Request Timeout', 'Request timed out; try again later.'),
-        409: ('Conflict', 'Request conflict.'),
-        410: ('Gone',
-              'URI no longer exists and has been permanently removed.'),
-        411: ('Length Required', 'Client must specify Content-Length.'),
-        412: ('Precondition Failed', 'Precondition in headers is false.'),
-        413: ('Request Entity Too Large', 'Entity is too large.'),
-        414: ('Request-URI Too Long', 'URI is too long.'),
-        415: ('Unsupported Media Type', 'Entity body in unsupported format.'),
-        416: ('Requested Range Not Satisfiable',
-              'Cannot satisfy request range.'),
-        417: ('Expectation Failed',
-              'Expect condition could not be satisfied.'),
-
-        500: ('Internal Server Error', 'Server got itself in trouble'),
-        501: ('Not Implemented',
-              'Server does not support this operation'),
-        502: ('Bad Gateway', 'Invalid responses from another server/proxy.'),
-        503: ('Service Unavailable',
-              'The server cannot process the request due to a high load'),
-        504: ('Gateway Timeout',
-              'The gateway server did not receive a timely response'),
-        505: ('HTTP Version Not Supported', 'Cannot fulfill request.'),
-        }
-
-    """Define self.rfile and self.wfile for stream sockets."""
-
-    # Default buffer sizes for rfile, wfile.
-    # We default rfile to buffered because otherwise it could be
-    # really slow for large data (a getc() call per byte); we make
-    # wfile unbuffered because (a) often after a write() we want to
-    # read and we need to flush the line; (b) big writes to unbuffered
-    # files are typically optimized by stdio even when big reads
-    # aren't.
-    rbufsize = -1
-    wbufsize = 0
-
-    # A timeout to apply to the request socket, if not None.
-    timeout = None
-
-    # Disable nagle algoritm for this socket, if True.
-    # Use only when wbufsize != 0, to avoid small packets.
-    disable_nagle_algorithm = False
+    500: ('Internal Server Error', 'Server got itself in trouble'),
+    501: ('Not Implemented',
+          'Server does not support this operation'),
+    502: ('Bad Gateway', 'Invalid responses from another server/proxy.'),
+    503: ('Service Unavailable',
+          'The server cannot process the request due to a high load'),
+    504: ('Gateway Timeout',
+          'The gateway server did not receive a timely response'),
+    505: ('HTTP Version Not Supported', 'Cannot fulfill request.'),
+    }
