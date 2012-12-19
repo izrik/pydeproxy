@@ -237,8 +237,7 @@ class DeproxyEndpoint:
 
 class DeproxyRequestHandler:
 
-    def __init__(self, request, client_address, server):
-        connection = request
+    def __init__(self, connection, client_address, server):
         if self.disable_nagle_algorithm:
             connection.setsockopt(socket.IPPROTO_TCP,
                                        socket.TCP_NODELAY, True)
