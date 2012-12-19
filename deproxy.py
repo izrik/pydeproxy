@@ -386,12 +386,13 @@ class DeproxyRequestHandler:
         # Examine the headers and look for a Connection directive
         headers = mimetools.Message(rfile, 0)
 
-        conntype = headers.get('Connection', "")
-        if conntype.lower() == 'close':
-            self.close_connection = 1
-        elif (conntype.lower() == 'keep-alive' and
-              self.protocol_version >= "HTTP/1.1"):
-            self.close_connection = 0
+        for name, value in headers.items():
+            if name.lower() == 'connection':
+                if value.lower() == 'close':
+                    self.close_connection = 1
+                elif (value.lower() == 'keep-alive' and
+                      self.protocol_version >= "HTTP/1.1"):
+                    self.close_connection = 0
 
         return Request(method, path, version, headers, rfile)
 
