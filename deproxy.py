@@ -262,7 +262,7 @@ class DeproxyRequestHandler:
     # Use only when wbufsize != 0, to avoid small packets.
     disable_nagle_algorithm = False
 
-    def __init__(self, connection, client_address, server):
+    def __init__(self, connection, client_address, endpoint):
         if self.disable_nagle_algorithm:
             connection.setsockopt(socket.IPPROTO_TCP,
                                        socket.TCP_NODELAY, True)
@@ -271,16 +271,16 @@ class DeproxyRequestHandler:
 
         try:
             self.close_connection = 1
-            self.handle_one_request(rfile, wfile, server)
+            self.handle_one_request(rfile, wfile, endpoint)
             while not self.close_connection:
-                self.handle_one_request(rfile, wfile, server)
+                self.handle_one_request(rfile, wfile, endpoint)
         finally:
             if not wfile.closed:
                 wfile.flush()
             wfile.close()
             rfile.close()
 
-    def handle_one_request(self, rfile, wfile, server):
+    def handle_one_request(self, rfile, wfile, endpoint):
         try:
             incoming_request = self.parse_request(rfile, wfile)
             if not incoming_request:
@@ -291,7 +291,7 @@ class DeproxyRequestHandler:
             message_chain = None
             if request_id_header_name in incoming_request.headers:
                 request_id = incoming_request.headers[request_id_header_name]
-                message_chain = server.deproxy.get_message_chain(
+                message_chain = endpoint.deproxy.get_message_chain(
                     request_id)
                 if message_chain:
                     handler_function = message_chain.handler_function
@@ -304,7 +304,7 @@ class DeproxyRequestHandler:
             outgoing_response = resp
 
             if message_chain is not None:
-                message_chain.add_handling(Handling(server,
+                message_chain.add_handling(Handling(endpoint,
                                                     incoming_request,
                                                     outgoing_response))
 
