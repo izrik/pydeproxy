@@ -241,8 +241,8 @@ class DeproxyRequestHandler:
         if self.disable_nagle_algorithm:
             connection.setsockopt(socket.IPPROTO_TCP,
                                        socket.TCP_NODELAY, True)
-        rfile = connection.makefile('rb', self.rbufsize)
-        wfile = connection.makefile('wb', self.wbufsize)
+        rfile = connection.makefile('rb', -1)
+        wfile = connection.makefile('wb', 0)
 
         try:
             self.close_connection = 1
@@ -570,8 +570,6 @@ class DeproxyRequestHandler:
         505: ('HTTP Version Not Supported', 'Cannot fulfill request.'),
         }
 
-    """Define self.rfile and self.wfile for stream sockets."""
-
     # Default buffer sizes for rfile, wfile.
     # We default rfile to buffered because otherwise it could be
     # really slow for large data (a getc() call per byte); we make
@@ -579,8 +577,6 @@ class DeproxyRequestHandler:
     # read and we need to flush the line; (b) big writes to unbuffered
     # files are typically optimized by stdio even when big reads
     # aren't.
-    rbufsize = -1
-    wbufsize = 0
 
     # Disable nagle algoritm for this socket, if True.
     # Use only when wbufsize != 0, to avoid small packets.
