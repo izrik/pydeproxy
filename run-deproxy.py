@@ -9,42 +9,39 @@ def handler2(request):
                             'this is the body')
 
 
-def print_request(request, heading=None):
+def print_request(request, heading=None, indent=''):
     if heading:
-        print heading
-    print '    method: %s' % request.method
-    print '    path: %s' % request.path
-    print '    headers:'
+        print '%s%s' % (indent, heading)
+    print '%s  method: %s' % (indent, request.method)
+    print '%s  path: %s' % (indent, request.path)
+    print '%s  headers:' % indent
     for name, value in request.headers.items():
-        print '        %s: %s' % (name, value)
-    print '    body: %s' % request.body
-    print ''
+        print '%s    %s: %s' % (indent, name, value)
+    print '%s  body: %s' % (indent, request.body)
 
-
-def print_response(response, heading=None):
+def print_response(response, heading=None, indent=''):
     if heading:
-        print heading
-    print '    status code: %s' % response.code
-    print '    message: %s' % response.message
-    print '    Headers: '
+        print '%s%s' % (indent, heading)
+    print '%s  status code: %s' % (indent, response.code)
+    print '%s  message: %s' % (indent, response.message)
+    print '%s  Headers: ' % indent
     for name, value in response.headers.items():
-        print '        %s: %s' % (name, value)
-    print '    Body:'
-    print response.body
-
+        print '%s    %s: %s' % (indent, name, value)
+    print '%s  Body: %s' % (indent, response.body)
 
 def print_message_chain(mc, heading=None):
     if heading:
         print heading
-    print_request(mc.sent_request, 'Sent Request')
+    print_request(mc.sent_request, 'Sent Request', '    ')
     for h in mc.handlings:
-        print 'Endpoint: "%s (%s:%i)' % (h.endpoint.name,
-                                         h.endpoint.address[0],
-                                         h.endpoint.address[1])
-        print_request(h.request, '  Received Request')
-        print_response(h.response, '  Sent Response')
-    print_response(mc.received_response, 'Received Response')
-
+        print '    Endpoint: "%s (%s:%i)' % (h.endpoint.name,
+                                             h.endpoint.address[0],
+                                             h.endpoint.address[1])
+        print_request(h.request, 'Received Request', '        ')
+        print_response(h.response, 'Sent Response', '        ')
+    print_response(mc.received_response, 'Received Response', '    ')
+    print
+    print
 
 def do_request_async(d, url, method, handler_function):
     t = threading.Thread(target=do_request_async_target,
@@ -53,9 +50,7 @@ def do_request_async(d, url, method, handler_function):
 
 
 def do_request_async_target(d, url, method, handler_function):
-    print
     mc = d.make_request(url, method, handler_function=handler_function)
-    print
     print_message_chain(mc)
 
 
@@ -75,19 +70,13 @@ def run():
 
     print "======== Normal Functionality ========"
 
-    print
     mc = d.make_request(url, 'GET')
-    print
     print_message_chain(mc)
 
-    print
     mc = d.make_request(url2, 'GET', handler_function=handler2)
-    print
     print_message_chain(mc)
 
-    print
     mc = d.make_request(url2, 'GET', handler_function=deproxy.echo_handler)
-    print
     print_message_chain(mc)
 
     print "======== Multi-threaded Functionality ========"
