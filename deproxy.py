@@ -77,6 +77,8 @@ class Deproxy:
         self.add_message_chain(request_id, message_chain)
 
         urlparts = list(urlparse.urlsplit(url, 'http'))
+        scheme = urlparts[0]
+        host = urlparts[1]
         urlparts[0] = ''
         urlparts[1] = ''
         path = urlparse.urlunsplit(urlparts)
