@@ -96,6 +96,7 @@ def run():
                                                         deproxy.echo_handler))
 
     do_request_async(d, url2, 'GET', handler_function=deproxy.default_handler)
+    do_request_async(d, url, 'GET', handler_function=handler2)
 
 if __name__ == '__main__':
     run()
