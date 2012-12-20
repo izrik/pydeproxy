@@ -88,7 +88,7 @@ class Deproxy:
             headers = {}
 
         request_id = str(uuid.uuid4())
-        headers[request_id_header_name] = request_id
+        try_add_value_case_insensitive(headers, request_id_header_name, request_id)
 
         message_chain = MessageChain(handler_function)
         self.add_message_chain(request_id, message_chain)
