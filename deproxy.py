@@ -88,7 +88,7 @@ class Deproxy:
         req.send()
         resp = req.response
 
-        self.del_message_chain(request_id)
+        self.remove_message_chain(request_id)
 
         message_chain.sent_request = Request(method, path, 'HTTP/1.0',
                                              req.headers, request_body)
@@ -113,7 +113,7 @@ class Deproxy:
         with self.message_chains_lock:
             self._message_chains[request_id] = message_chain
 
-    def del_message_chain(self, request_id):
+    def remove_message_chain(self, request_id):
         with self.message_chains_lock:
             del self._message_chains[request_id]
 
