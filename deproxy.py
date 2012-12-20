@@ -49,6 +49,13 @@ def delay_and_then(seconds, handler_function):
 request_id_header_name = 'Deproxy-Request-ID'
 
 
+
+def try_get_value_case_insensitive(d, key_name):
+    for name, value in d.items():
+        if name.lower() == key_name.lower():
+            return value
+    return None
+
 class MessageChain:
     def __init__(self, handler_function):
         self.handler_function = handler_function
@@ -297,9 +304,9 @@ class DeproxyEndpoint:
             handler_function = default_handler
             message_chain = None
             request_id = None
-            for name, value in incoming_request.headers.items():
-                if name.lower() == request_id_header_name.lower():
-                    request_id = value
+            request_id = try_get_value_case_insensitive(
+                incoming_request.headers,
+                request_id_header_name)
             if request_id:
                 message_chain = endpoint.deproxy.get_message_chain(request_id)
             if message_chain:
@@ -307,10 +314,8 @@ class DeproxyEndpoint:
 
             resp = handler_function(incoming_request)
 
-            found = False
-            for name, value in resp.headers.items():
-                if name.lower() == request_id_header_name.lower():
-                    found = True
+            found = try_get_value_case_insensitive(resp.headers,
+                                                   request_id_header_name)
             if not found:
                 resp.headers[request_id_header_name] = request_id
 
@@ -335,12 +340,12 @@ class DeproxyEndpoint:
 
     def check_close_connection(self, headers):
         if self.protocol_version >= "HTTP/1.1":
-            for name, value in headers.items():
-                if name.lower() == 'connection':
-                    if value.lower() == 'close':
-                        return 1
-                    elif value.lower() == 'keep-alive':
-                        return 0
+            conn_value = try_get_value_case_insensitive(headers, 'connection')
+            if conn_value:
+                if value.lower() == 'close':
+                    return 1
+                elif value.lower() == 'keep-alive':
+                    return 0
         else:
             return 1
         return 0
@@ -475,12 +480,9 @@ Error code explanation: %(code)s = %(explain)s."""
         if 'date' not in lowers:
             headers['Date'] = self.date_time_string()
 
-        for name, value in headers.iteritems():
-            if response.protocol != 'HTTP/0.9':
-                wfile.write("%s: %s\r\n" % (name, value))
-
-        # Send the blank line ending the MIME headers.
         if response.protocol != 'HTTP/0.9':
+            for name, value in headers.iteritems():
+                wfile.write("%s: %s\r\n" % (name, value))
             wfile.write("\r\n")
 
         # Send the response body
