@@ -35,12 +35,14 @@ def print_message_chain(mc, heading=None):
         if heading:
             print heading
         print_request(mc.sent_request, 'Sent Request', '    ')
+        i = 0
         for h in mc.handlings:
-            print '    Endpoint: "%s (%s:%i)' % (h.endpoint.name,
-                                                 h.endpoint.address[0],
-                                                 h.endpoint.address[1])
+            print '    Handling %i: "%s (%s:%i)' % (i, h.endpoint.name,
+                                                       h.endpoint.address[0],
+                                                       h.endpoint.address[1])
             print_request(h.request, 'Received Request', '        ')
             print_response(h.response, 'Sent Response', '        ')
+            i += 1
         print_response(mc.received_response, 'Received Response', '    ')
         print
         print
