@@ -56,6 +56,13 @@ def try_get_value_case_insensitive(d, key_name):
             return value
     return None
 
+def try_add_value_case_insensitive(d, key_name, new_value):
+    for name, value in d.items():
+        if name.lower() == key_name.lower():
+            return value
+    d[key_name] = new_value
+    return new_value
+
 class MessageChain:
     def __init__(self, handler_function):
         self.handler_function = handler_function
