@@ -62,9 +62,9 @@ class MessageChain:
 
 class Deproxy:
     def __init__(self, server_address=None):
-        self.message_chains_lock = threading.Lock()
+        self._message_chains_lock = threading.Lock()
         self._message_chains = dict()
-        self.endpoint_lock = threading.Lock()
+        self._endpoint_lock = threading.Lock()
         self._endpoints = []
         if server_address:
             self.add_endpoint(server_address)
@@ -102,7 +102,7 @@ class Deproxy:
 
     def add_endpoint(self, server_address, name=None):
         endpoint = None
-        with self.endpoint_lock:
+        with self._endpoint_lock:
             if name is None:
                 name = 'Endpoint-%i' % len(self._endpoints)
             endpoint = DeproxyEndpoint(self, server_address, name)
@@ -110,15 +110,15 @@ class Deproxy:
             return endpoint
 
     def add_message_chain(self, request_id, message_chain):
-        with self.message_chains_lock:
+        with self._message_chains_lock:
             self._message_chains[request_id] = message_chain
 
     def remove_message_chain(self, request_id):
-        with self.message_chains_lock:
+        with self._message_chains_lock:
             del self._message_chains[request_id]
 
     def get_message_chain(self, request_id):
-        with self.message_chains_lock:
+        with self._message_chains_lock:
             if request_id in self._message_chains:
                 return self._message_chains[request_id]
             else:
