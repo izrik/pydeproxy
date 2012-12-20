@@ -29,19 +29,21 @@ def print_response(response, heading=None, indent=''):
         print '%s    %s: %s' % (indent, name, value)
     print '%s  Body: %s' % (indent, response.body)
 
+_print_lock = threading.Lock()
 def print_message_chain(mc, heading=None):
-    if heading:
-        print heading
-    print_request(mc.sent_request, 'Sent Request', '    ')
-    for h in mc.handlings:
-        print '    Endpoint: "%s (%s:%i)' % (h.endpoint.name,
-                                             h.endpoint.address[0],
-                                             h.endpoint.address[1])
-        print_request(h.request, 'Received Request', '        ')
-        print_response(h.response, 'Sent Response', '        ')
-    print_response(mc.received_response, 'Received Response', '    ')
-    print
-    print
+    with _print_lock:
+        if heading:
+            print heading
+        print_request(mc.sent_request, 'Sent Request', '    ')
+        for h in mc.handlings:
+            print '    Endpoint: "%s (%s:%i)' % (h.endpoint.name,
+                                                 h.endpoint.address[0],
+                                                 h.endpoint.address[1])
+            print_request(h.request, 'Received Request', '        ')
+            print_response(h.response, 'Sent Response', '        ')
+        print_response(mc.received_response, 'Received Response', '    ')
+        print
+        print
 
 def do_request_async(d, url, method, handler_function):
     t = threading.Thread(target=do_request_async_target,
