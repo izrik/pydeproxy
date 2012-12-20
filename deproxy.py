@@ -300,10 +300,10 @@ class DeproxyEndpoint:
             for name, value in incoming_request.headers.items():
                 if name.lower() == request_id_header_name.lower():
                     request_id = value
-                    message_chain = endpoint.deproxy.get_message_chain(
-                        request_id)
-                    if message_chain:
-                        handler_function = message_chain.handler_function
+            if request_id:
+                message_chain = endpoint.deproxy.get_message_chain(request_id)
+            if message_chain:
+                handler_function = message_chain.handler_function
 
             resp = handler_function(incoming_request)
 
@@ -316,7 +316,7 @@ class DeproxyEndpoint:
 
             outgoing_response = resp
 
-            if message_chain is not None:
+            if message_chain:
                 message_chain.add_handling(Handling(endpoint,
                                                     incoming_request,
                                                     outgoing_response))
