@@ -97,6 +97,11 @@ class Deproxy:
         urlparts[1] = ''
         path = urlparse.urlunsplit(urlparts)
 
+        try_add_value_case_insensitive(headers, 'Host', host)
+        try_add_value_case_insensitive(headers, 'Accept', '*/*')
+        try_add_value_case_insensitive(headers, 'Accept-Encoding', 'identity, deflate, compress, gzip')
+        try_add_value_case_insensitive(headers, 'User-Agent', version_string)
+
         req = requests.request(method, url, return_response=False,
                                headers=headers, data=request_body)
         req.send()
