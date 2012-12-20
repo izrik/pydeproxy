@@ -47,8 +47,9 @@ def print_message_chain(mc, heading=None):
         print
         print
 
-def do_request_async(d, url, method, handler_function):
+def do_request_async(d, url, method, handler_function, name):
     t = threading.Thread(target=do_request_async_target,
+                         name=('Client %s' % name),
                          args=(d, url, method, handler_function))
     t.start()
 
@@ -85,11 +86,12 @@ def run():
 
     print "======== Multi-threaded Functionality ========"
 
-    do_request_async(d, url, 'GET', handler_function=deproxy.delay_and_then(2,
-                                                        deproxy.echo_handler))
+    do_request_async(d, url, 'GET',
+                     deproxy.delay_and_then(2, deproxy.echo_handler),
+                     'mt-1')
 
-    do_request_async(d, url2, 'GET', handler_function=deproxy.default_handler)
-    do_request_async(d, url, 'GET', handler_function=handler2)
+    do_request_async(d, url2, 'GET', deproxy.default_handler, 'mt-2')
+    do_request_async(d, url, 'GET', handler2, 'mt-3')
 
 if __name__ == '__main__':
     run()
