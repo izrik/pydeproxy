@@ -81,8 +81,11 @@ class Deproxy:
         self._endpoint_lock = threading.Lock()
         self._endpoints = []
 
-    def make_request(self, url, method='GET', headers={}, request_body='',
+    def make_request(self, url, method='GET', headers=None, request_body='',
                      handler_function=default_handler):
+
+        if headers is None:
+            headers = {}
 
         request_id = str(uuid.uuid4())
         headers[request_id_header_name] = request_id
