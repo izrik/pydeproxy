@@ -61,13 +61,11 @@ class MessageChain:
 
 
 class Deproxy:
-    def __init__(self, server_address=None):
+    def __init__(self):
         self._message_chains_lock = threading.Lock()
         self._message_chains = dict()
         self._endpoint_lock = threading.Lock()
         self._endpoints = []
-        if server_address:
-            self.add_endpoint(server_address)
 
     def make_request(self, url, method='GET', headers={}, request_body='',
                      handler_function=default_handler):

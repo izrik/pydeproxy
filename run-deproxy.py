@@ -64,7 +64,8 @@ def run():
     port = 8081
     server_address = (server, port)
 
-    d = deproxy.Deproxy(server_address)
+    d = deproxy.Deproxy()
+    d.add_endpoint((server, port))
     d.add_endpoint((server, port + 1))
 
     target = server
