@@ -130,13 +130,7 @@ class Deproxy:
 
         request = Request(method, path, 'HTTP/1.0', headers, request_body)
 
-        req = requests.request(method, url, return_response=False,
-                               headers=headers, data=request_body)
-        req.send()
-        resp = req.response
-
-        response = Response('HTTP/1.0', resp.status_code, resp.raw.reason,
-                            resp.headers, resp.text)
+        response = self.send_request(url, request)
 
         self.remove_message_chain(request_id)
 
@@ -144,6 +138,17 @@ class Deproxy:
         message_chain.received_response = response
 
         return message_chain
+
+    def send_request(self, url, request):
+        req = requests.request(request.method, url, return_response=False,
+                               headers=request.headers, data=request.body)
+        req.send()
+        resp = req.response
+
+        response = Response('HTTP/1.0', resp.status_code, resp.raw.reason,
+                            resp.headers, resp.text)
+        return response
+
 
     def add_endpoint(self, server_address, name=None):
         log()
