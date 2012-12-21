@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import requests
 import threading
 import socket
 import time
@@ -141,18 +140,35 @@ class Deproxy:
         hostname = hostparts[0]
         hostip = socket.gethostbyname(hostname)
 
-        parts = list(urlparse.urlsplit(request.path))
-        parts[0] = scheme
-        parts[1] = host
-        url = urlparse.urlunsplit(parts)
+        request_line = '%s %s %s\r\n' % (request.method, request.path, 'HTTP/1.0')
+        lines = [request_line]
 
-        req = requests.request(request.method, url, return_response=False,
-                               headers=request.headers, data=request.body)
-        req.send()
-        resp = req.response
+        for name, value in request.headers.iteritems():
+            lines.append('%s: %s\r\n' % (name, value))
+        lines.append('\r\n')
+        lines.append(request.body)
+        lines.append('\r\n')
+        lines.append('\r\n')
 
-        response = Response('HTTP/1.0', resp.status_code, resp.raw.reason,
-                            resp.headers, resp.text)
+        s = socket.create_connection((hostname, port))
+        s.send(''.join(lines))
+
+        rfile = s.makefile('rb', -1)
+
+        response_line = rfile.readline(65537)
+        if (len(response_line) > 65536):
+            raise ValueError
+
+        words = response_line.split()
+
+        proto = words[0]
+        code = words[1]
+        message = ' '.join(words[2:])
+
+        response_headers = dict(mimetools.Message(rfile, 0))
+
+        response = Response(proto, code, message, response_headers, rfile)
+
         return response
 
 
