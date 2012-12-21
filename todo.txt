@@ -1,0 +1,7 @@
+automated testing
+use a standard library for logging
+extract classes for handling http version 0.9, 1.0, and 1.1
+add endpoint parameter to handler functions
+docs and/or web pages
+package for pip
+package for deb and rpm
