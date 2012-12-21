@@ -52,12 +52,12 @@ def delay_and_then(seconds, handler_function):
 request_id_header_name = 'Deproxy-Request-ID'
 
 
-
 def try_get_value_case_insensitive(d, key_name):
     for name, value in d.items():
         if name.lower() == key_name.lower():
             return value
     return None
+
 
 def try_add_value_case_insensitive(d, key_name, new_value):
     for name, value in d.items():
@@ -65,6 +65,7 @@ def try_add_value_case_insensitive(d, key_name, new_value):
             return value
     d[key_name] = new_value
     return new_value
+
 
 def log(s=''):
     f = inspect.getouterframes(inspect.currentframe(), 1)[1]
@@ -99,7 +100,8 @@ class Deproxy:
             headers = {}
 
         request_id = str(uuid.uuid4())
-        try_add_value_case_insensitive(headers, request_id_header_name, request_id)
+        try_add_value_case_insensitive(headers, request_id_header_name,
+                                       request_id)
 
         message_chain = MessageChain(handler_function)
         self.add_message_chain(request_id, message_chain)
@@ -113,7 +115,8 @@ class Deproxy:
 
         try_add_value_case_insensitive(headers, 'Host', host)
         try_add_value_case_insensitive(headers, 'Accept', '*/*')
-        try_add_value_case_insensitive(headers, 'Accept-Encoding', 'identity, deflate, compress, gzip')
+        try_add_value_case_insensitive(headers, 'Accept-Encoding',
+                                       'identity, deflate, compress, gzip')
         try_add_value_case_insensitive(headers, 'User-Agent', version_string)
 
         request = Request(method, path, 'HTTP/1.0', headers, request_body)
@@ -140,7 +143,8 @@ class Deproxy:
         hostname = hostparts[0]
         hostip = socket.gethostbyname(hostname)
 
-        request_line = '%s %s %s\r\n' % (request.method, request.path, 'HTTP/1.0')
+        request_line = '%s %s %s\r\n' % (request.method, request.path,
+                                         'HTTP/1.0')
         lines = [request_line]
 
         for name, value in request.headers.iteritems():
@@ -170,7 +174,6 @@ class Deproxy:
         response = Response(proto, code, message, response_headers, rfile)
 
         return response
-
 
     def add_endpoint(self, server_address, name=None):
         log()
@@ -230,7 +233,8 @@ class DeproxyEndpoint:
         self.address = server_address
 
         thread_name = 'Thread-%s' % self.name
-        server_thread = threading.Thread(target=self.serve_forever, name=thread_name)
+        server_thread = threading.Thread(target=self.serve_forever,
+                                         name=thread_name)
         server_thread.daemon = True
         server_thread.start()
 
@@ -312,7 +316,8 @@ class DeproxyEndpoint:
                         with self._conn_number_lock:
                             t = threading.Thread(
                                 target=self.process_new_connection,
-                                name=("Thread - Connection %i on %s" % (self._conn_number, self.name)),
+                                name=("Thread - Connection %i on %s" %
+                                      (self._conn_number, self.name)),
                                 args=(request, client_address))
                             self._conn_number += 1
                         if self.daemon_threads:
@@ -417,9 +422,9 @@ class DeproxyEndpoint:
         if self.protocol_version >= "HTTP/1.1":
             conn_value = try_get_value_case_insensitive(headers, 'connection')
             if conn_value:
-                if value.lower() == 'close':
+                if conn_value.lower() == 'close':
                     return 1
-                elif value.lower() == 'keep-alive':
+                elif conn_value.lower() == 'keep-alive':
                     return 0
         else:
             return 1
