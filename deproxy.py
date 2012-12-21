@@ -130,8 +130,6 @@ class Deproxy:
 
         request = Request(method, path, 'HTTP/1.0', headers, request_body)
 
-        message_chain.sent_request = request
-
         req = requests.request(method, url, return_response=False,
                                headers=headers, data=request_body)
         req.send()
@@ -142,6 +140,7 @@ class Deproxy:
 
         self.remove_message_chain(request_id)
 
+        message_chain.sent_request = request
         message_chain.received_response = response
 
         return message_chain
