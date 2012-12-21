@@ -47,16 +47,16 @@ def print_message_chain(mc, heading=None):
         print
         print
 
-def do_request_async(d, url, method, handler_function, name):
+def do_request_async(d, url, method, handler_function, heading, name):
     t = threading.Thread(target=do_request_async_target,
                          name=('Client %s' % name),
-                         args=(d, url, method, handler_function))
+                         args=(d, url, method, handler_function, heading))
     t.start()
 
 
-def do_request_async_target(d, url, method, handler_function):
+def do_request_async_target(d, url, method, handler_function, heading):
     mc = d.make_request(url, method, handler_function=handler_function)
-    print_message_chain(mc)
+    print_message_chain(mc, heading)
 
 
 def run():
@@ -88,10 +88,12 @@ def run():
 
     do_request_async(d, url, 'GET',
                      deproxy.delay_and_then(2, deproxy.echo_handler),
-                     'mt-1')
+                     'mt-1: Delay with echo, endpoint-0', 'mt-1')
 
-    do_request_async(d, url2, 'GET', deproxy.default_handler, 'mt-2')
-    do_request_async(d, url, 'GET', handler2, 'mt-3')
+    do_request_async(d, url2, 'GET', deproxy.default_handler,
+                     'mt-2: default handler, endpoint-1', 'mt-2')
+    do_request_async(d, url, 'GET', handler2,
+                     'mt-3: handler2, endpoint-0', 'mt-3')
 
 if __name__ == '__main__':
     run()
