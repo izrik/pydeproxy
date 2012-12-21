@@ -202,7 +202,8 @@ class DeproxyEndpoint:
         self.name = name
         self.address = server_address
 
-        server_thread = threading.Thread(target=self.serve_forever)
+        thread_name = 'Thread-%s' % self.name
+        server_thread = threading.Thread(target=self.serve_forever, name=thread_name)
         server_thread.daemon = True
         server_thread.start()
 
