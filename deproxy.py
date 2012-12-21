@@ -136,7 +136,7 @@ class Deproxy:
         self.remove_message_chain(request_id)
 
         message_chain.sent_request = Request(method, path, 'HTTP/1.0',
-                                             req.headers, request_body)
+                                             headers, request_body)
         message_chain.received_response = Response('HTTP/1.0',
                                                    resp.status_code,
                                                    resp.raw.reason,
