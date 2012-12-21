@@ -240,8 +240,6 @@ class DeproxyEndpoint:
         finally:
             self.shutdown_request(request)
 
-    ### TCPServer
-
     address_family = socket.AF_INET
 
     socket_type = socket.SOCK_STREAM
@@ -258,7 +256,8 @@ class DeproxyEndpoint:
             pass  # some platforms may raise ENOTCONN here
         request.close()
 
-    ### BaseServer
+    _conn_number = 1
+    _conn_number_lock = threading.Lock()
 
     def serve_forever(self, poll_interval=0.5):
         """Handle one request at a time until shutdown.
@@ -283,9 +282,12 @@ class DeproxyEndpoint:
                         return
 
                     try:
-                        t = threading.Thread(
-                            target=self.process_new_connection,
-                            args=(request, client_address))
+                        with self._conn_number_lock:
+                            t = threading.Thread(
+                                target=self.process_new_connection,
+                                name=("Thread - Connection %i on %s" % (self._conn_number, self.name)),
+                                args=(request, client_address))
+                            self._conn_number += 1
                         if self.daemon_threads:
                             t.setDaemon(1)
                         t.start()
