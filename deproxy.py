@@ -10,6 +10,7 @@ import select
 import sys
 import mimetools
 import urlparse
+import inspect
 
 # The Python system version, truncated to its first component.
 python_version = "Python/" + sys.version.split()[0]
@@ -31,17 +32,20 @@ Handling = collections.namedtuple('Handling', ['endpoint', 'request',
 
 
 def default_handler(request):
+    log()
     # returns a Response, comprised of status_code, status_message,
     # headers (list of key/value pairs), response_body (text or stream)
     return Response('HTTP/1.0', 200, 'OK', {}, '')
 
 
 def echo_handler(request):
+    log()
     return Response('HTTP/1.0', 200, 'OK', request.headers, request.body)
 
 
 def delay_and_then(seconds, handler_function):
     def delay(request):
+        log('delaying for %i seconds' % seconds)
         time.sleep(seconds)
         return handler_function(request)
     return delay
@@ -90,6 +94,7 @@ class Deproxy:
 
     def make_request(self, url, method='GET', headers=None, request_body='',
                      handler_function=default_handler):
+        log()
 
         if headers is None:
             headers = {}
@@ -130,6 +135,7 @@ class Deproxy:
         return message_chain
 
     def add_endpoint(self, server_address, name=None):
+        log()
         endpoint = None
         with self._endpoint_lock:
             if name is None:
@@ -139,14 +145,17 @@ class Deproxy:
             return endpoint
 
     def add_message_chain(self, request_id, message_chain):
+        log('request_id = %s' % request_id)
         with self._message_chains_lock:
             self._message_chains[request_id] = message_chain
 
     def remove_message_chain(self, request_id):
+        log('request_id = %s' % request_id)
         with self._message_chains_lock:
             del self._message_chains[request_id]
 
     def get_message_chain(self, request_id):
+        log('request_id = %s' % request_id)
         with self._message_chains_lock:
             if request_id in self._message_chains:
                 return self._message_chains[request_id]
@@ -156,6 +165,7 @@ class Deproxy:
 
 class DeproxyEndpoint:
     def __init__(self, deproxy, server_address, name):
+        log('server_address=%s, name=%s' % (server_address, name))
 
         # BaseServer init
         self.server_address = server_address
@@ -194,6 +204,7 @@ class DeproxyEndpoint:
         In addition, exception handling is done here.
 
         """
+        log('received request from %s' % str(client_address))
         try:
             connection = request
             endpoint = self
@@ -244,6 +255,7 @@ class DeproxyEndpoint:
         self.timeout. If you need to do periodic tasks, do them in
         another thread.
         """
+        log()
         self.__is_shut_down.clear()
         try:
             while not self.__shutdown_request:
