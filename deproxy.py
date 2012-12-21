@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import requests
 import threading
 import socket
 import time
@@ -9,6 +8,8 @@ import uuid
 import select
 import sys
 import mimetools
+import urlparse
+import inspect
 
 # The Python system version, truncated to its first component.
 python_version = "Python/" + sys.version.split()[0]
@@ -30,22 +31,47 @@ Handling = collections.namedtuple('Handling', ['endpoint', 'request',
 
 
 def default_handler(request):
+    log()
     # returns a Response, comprised of status_code, status_message,
     # headers (list of key/value pairs), response_body (text or stream)
     return Response('HTTP/1.0', 200, 'OK', {}, '')
 
 
 def echo_handler(request):
+    log()
     return Response('HTTP/1.0', 200, 'OK', request.headers, request.body)
 
 
 def delay_and_then(seconds, handler_function):
     def delay(request):
+        log('delaying for %i seconds' % seconds)
         time.sleep(seconds)
         return handler_function(request)
     return delay
 
 request_id_header_name = 'Deproxy-Request-ID'
+
+
+def try_get_value_case_insensitive(d, key_name):
+    for name, value in d.items():
+        if name.lower() == key_name.lower():
+            return value
+    return None
+
+
+def try_add_value_case_insensitive(d, key_name, new_value):
+    for name, value in d.items():
+        if name.lower() == key_name.lower():
+            return value
+    d[key_name] = new_value
+    return new_value
+
+
+def log(s=''):
+    f = inspect.getouterframes(inspect.currentframe(), 1)[1]
+    t = threading.current_thread()
+    print '[%s : %s(%i) : %s : %s (%i)] %s' % (time.ctime(), f[1], f[2], f[3],
+                                               t.name, t.ident, s)
 
 
 class MessageChain:
@@ -60,43 +86,99 @@ class MessageChain:
 
 
 class Deproxy:
-    def __init__(self, server_address=None):
-        self.message_chains_lock = threading.Lock()
+    def __init__(self):
+        self._message_chains_lock = threading.Lock()
         self._message_chains = dict()
-        self.endpoint_lock = threading.Lock()
+        self._endpoint_lock = threading.Lock()
         self._endpoints = []
-        if server_address:
-            self.add_endpoint(server_address)
 
-    def make_request(self, url, method='GET', headers={}, request_body='',
+    def make_request(self, url, method='GET', headers=None, request_body='',
                      handler_function=default_handler):
+        log()
+
+        if headers is None:
+            headers = {}
 
         request_id = str(uuid.uuid4())
-        headers[request_id_header_name] = request_id
+        try_add_value_case_insensitive(headers, request_id_header_name,
+                                       request_id)
 
         message_chain = MessageChain(handler_function)
         self.add_message_chain(request_id, message_chain)
 
-        req = requests.request(method, url, return_response=False,
-                               headers=headers, data=request_body)
-        req.send()
-        resp = req.response
+        urlparts = list(urlparse.urlsplit(url, 'http'))
+        scheme = urlparts[0]
+        host = urlparts[1]
+        urlparts[0] = ''
+        urlparts[1] = ''
+        path = urlparse.urlunsplit(urlparts)
 
-        self.del_message_chain(request_id)
+        try_add_value_case_insensitive(headers, 'Host', host)
+        try_add_value_case_insensitive(headers, 'Accept', '*/*')
+        try_add_value_case_insensitive(headers, 'Accept-Encoding',
+                                       'identity, deflate, compress, gzip')
+        try_add_value_case_insensitive(headers, 'User-Agent', version_string)
 
-        message_chain.sent_request = Request(req.method, req.path_url,
-                                             'HTTP/1.0', req.headers, req.data)
-        message_chain.received_response = Response('HTTP/1.0',
-                                                   resp.status_code,
-                                                   resp.raw.reason,
-                                                   resp.headers,
-                                                   resp.text)
+        request = Request(method, path, 'HTTP/1.0', headers, request_body)
+
+        response = self.send_request(scheme, host, request)
+
+        self.remove_message_chain(request_id)
+
+        message_chain.sent_request = request
+        message_chain.received_response = response
 
         return message_chain
 
+    def send_request(self, scheme, host, request):
+
+        hostparts = host.split(':')
+        if len(hostparts) > 1:
+            port = hostparts[1]
+        else:
+            if scheme == 'https':
+                port = 443
+            else:
+                port = 80
+        hostname = hostparts[0]
+        hostip = socket.gethostbyname(hostname)
+
+        request_line = '%s %s %s\r\n' % (request.method, request.path,
+                                         'HTTP/1.0')
+        lines = [request_line]
+
+        for name, value in request.headers.iteritems():
+            lines.append('%s: %s\r\n' % (name, value))
+        lines.append('\r\n')
+        lines.append(request.body)
+        lines.append('\r\n')
+        lines.append('\r\n')
+
+        s = socket.create_connection((hostname, port))
+        s.send(''.join(lines))
+
+        rfile = s.makefile('rb', -1)
+
+        response_line = rfile.readline(65537)
+        if (len(response_line) > 65536):
+            raise ValueError
+
+        words = response_line.split()
+
+        proto = words[0]
+        code = words[1]
+        message = ' '.join(words[2:])
+
+        response_headers = dict(mimetools.Message(rfile, 0))
+
+        response = Response(proto, code, message, response_headers, rfile)
+
+        return response
+
     def add_endpoint(self, server_address, name=None):
+        log()
         endpoint = None
-        with self.endpoint_lock:
+        with self._endpoint_lock:
             if name is None:
                 name = 'Endpoint-%i' % len(self._endpoints)
             endpoint = DeproxyEndpoint(self, server_address, name)
@@ -104,15 +186,18 @@ class Deproxy:
             return endpoint
 
     def add_message_chain(self, request_id, message_chain):
-        with self.message_chains_lock:
+        log('request_id = %s' % request_id)
+        with self._message_chains_lock:
             self._message_chains[request_id] = message_chain
 
-    def del_message_chain(self, request_id):
-        with self.message_chains_lock:
+    def remove_message_chain(self, request_id):
+        log('request_id = %s' % request_id)
+        with self._message_chains_lock:
             del self._message_chains[request_id]
 
     def get_message_chain(self, request_id):
-        with self.message_chains_lock:
+        log('request_id = %s' % request_id)
+        with self._message_chains_lock:
             if request_id in self._message_chains:
                 return self._message_chains[request_id]
             else:
@@ -121,6 +206,7 @@ class Deproxy:
 
 class DeproxyEndpoint:
     def __init__(self, deproxy, server_address, name):
+        log('server_address=%s, name=%s' % (server_address, name))
 
         # BaseServer init
         self.server_address = server_address
@@ -146,7 +232,9 @@ class DeproxyEndpoint:
         self.name = name
         self.address = server_address
 
-        server_thread = threading.Thread(target=self.serve_forever)
+        thread_name = 'Thread-%s' % self.name
+        server_thread = threading.Thread(target=self.serve_forever,
+                                         name=thread_name)
         server_thread.daemon = True
         server_thread.start()
 
@@ -159,6 +247,7 @@ class DeproxyEndpoint:
         In addition, exception handling is done here.
 
         """
+        log('received request from %s' % str(client_address))
         try:
             connection = request
             endpoint = self
@@ -182,8 +271,6 @@ class DeproxyEndpoint:
         finally:
             self.shutdown_request(request)
 
-    ### TCPServer
-
     address_family = socket.AF_INET
 
     socket_type = socket.SOCK_STREAM
@@ -200,7 +287,8 @@ class DeproxyEndpoint:
             pass  # some platforms may raise ENOTCONN here
         request.close()
 
-    ### BaseServer
+    _conn_number = 1
+    _conn_number_lock = threading.Lock()
 
     def serve_forever(self, poll_interval=0.5):
         """Handle one request at a time until shutdown.
@@ -209,6 +297,7 @@ class DeproxyEndpoint:
         self.timeout. If you need to do periodic tasks, do them in
         another thread.
         """
+        log()
         self.__is_shut_down.clear()
         try:
             while not self.__shutdown_request:
@@ -224,9 +313,13 @@ class DeproxyEndpoint:
                         return
 
                     try:
-                        t = threading.Thread(
-                            target=self.process_new_connection,
-                            args=(request, client_address))
+                        with self._conn_number_lock:
+                            t = threading.Thread(
+                                target=self.process_new_connection,
+                                name=("Thread - Connection %i on %s" %
+                                      (self._conn_number, self.name)),
+                                args=(request, client_address))
+                            self._conn_number += 1
                         if self.daemon_threads:
                             t.setDaemon(1)
                         t.start()
@@ -291,26 +384,24 @@ class DeproxyEndpoint:
             handler_function = default_handler
             message_chain = None
             request_id = None
-            for name, value in incoming_request.headers.items():
-                if name.lower() == request_id_header_name.lower():
-                    request_id = value
-                    message_chain = endpoint.deproxy.get_message_chain(
-                        request_id)
-                    if message_chain:
-                        handler_function = message_chain.handler_function
+            request_id = try_get_value_case_insensitive(
+                incoming_request.headers,
+                request_id_header_name)
+            if request_id:
+                message_chain = endpoint.deproxy.get_message_chain(request_id)
+            if message_chain:
+                handler_function = message_chain.handler_function
 
             resp = handler_function(incoming_request)
 
-            found = False
-            for name, value in resp.headers.items():
-                if name.lower() == request_id_header_name.lower():
-                    found = True
+            found = try_get_value_case_insensitive(resp.headers,
+                                                   request_id_header_name)
             if not found:
                 resp.headers[request_id_header_name] = request_id
 
             outgoing_response = resp
 
-            if message_chain is not None:
+            if message_chain:
                 message_chain.add_handling(Handling(endpoint,
                                                     incoming_request,
                                                     outgoing_response))
@@ -329,12 +420,12 @@ class DeproxyEndpoint:
 
     def check_close_connection(self, headers):
         if self.protocol_version >= "HTTP/1.1":
-            for name, value in headers.items():
-                if name.lower() == 'connection':
-                    if value.lower() == 'close':
-                        return 1
-                    elif value.lower() == 'keep-alive':
-                        return 0
+            conn_value = try_get_value_case_insensitive(headers, 'connection')
+            if conn_value:
+                if conn_value.lower() == 'close':
+                    return 1
+                elif conn_value.lower() == 'keep-alive':
+                    return 0
         else:
             return 1
         return 0
@@ -469,12 +560,9 @@ Error code explanation: %(code)s = %(explain)s."""
         if 'date' not in lowers:
             headers['Date'] = self.date_time_string()
 
-        for name, value in headers.iteritems():
-            if response.protocol != 'HTTP/0.9':
-                wfile.write("%s: %s\r\n" % (name, value))
-
-        # Send the blank line ending the MIME headers.
         if response.protocol != 'HTTP/0.9':
+            for name, value in headers.iteritems():
+                wfile.write("%s: %s\r\n" % (name, value))
             wfile.write("\r\n")
 
         # Send the response body

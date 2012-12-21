@@ -5,66 +5,71 @@ import threading
 
 
 def handler2(request):
-    return deproxy.Response('HTTP/1.0', 601, 'Something', {'X-Header': 'Value'},
-                            'this is the body')
+    return deproxy.Response('HTTP/1.0', 601, 'Something',
+                            {'X-Header': 'Value'}, 'this is the body')
 
 
-def print_request(request, heading=None):
+def print_request(request, heading=None, indent=''):
     if heading:
-        print heading
-    print '    method: %s' % request.method
-    print '    path: %s' % request.path
-    print '    headers:'
+        print '%s%s' % (indent, heading)
+    print '%s  method: %s' % (indent, request.method)
+    print '%s  path: %s' % (indent, request.path)
+    print '%s  headers:' % indent
     for name, value in request.headers.items():
-        print '        %s: %s' % (name, value)
-    print '    body: %s' % request.body
-    print ''
+        print '%s    %s: %s' % (indent, name, value)
+    print '%s  body: %s' % (indent, request.body)
 
 
-def print_response(response, heading=None):
+def print_response(response, heading=None, indent=''):
     if heading:
-        print heading
-    print '    status code: %s' % response.code
-    print '    message: %s' % response.message
-    print '    Headers: '
+        print '%s%s' % (indent, heading)
+    print '%s  status code: %s' % (indent, response.code)
+    print '%s  message: %s' % (indent, response.message)
+    print '%s  Headers: ' % indent
     for name, value in response.headers.items():
-        print '        %s: %s' % (name, value)
-    print '    Body:'
-    print response.body
+        print '%s    %s: %s' % (indent, name, value)
+    print '%s  Body: %s' % (indent, response.body)
+
+
+_print_lock = threading.Lock()
 
 
 def print_message_chain(mc, heading=None):
-    if heading:
-        print heading
-    print_request(mc.sent_request, 'Sent Request')
-    for h in mc.handlings:
-        print 'Endpoint: "%s (%s:%i)' % (h.endpoint.name,
-                                         h.endpoint.address[0],
-                                         h.endpoint.address[1])
-        print_request(h.request, '  Received Request')
-        print_response(h.response, '  Sent Response')
-    print_response(mc.received_response, 'Received Response')
+    with _print_lock:
+        if heading:
+            print heading
+        print_request(mc.sent_request, 'Sent Request', '    ')
+        i = 0
+        for h in mc.handlings:
+            print '    Handling %i: "%s (%s:%i)' % (i, h.endpoint.name,
+                                                    h.endpoint.address[0],
+                                                    h.endpoint.address[1])
+            print_request(h.request, 'Received Request', '        ')
+            print_response(h.response, 'Sent Response', '        ')
+            i += 1
+        print_response(mc.received_response, 'Received Response', '    ')
+        print
+        print
 
 
-def do_request_async(d, url, method, handler_function):
+def do_request_async(d, url, method, handler_function, heading, name):
     t = threading.Thread(target=do_request_async_target,
-                         args=(d, url, method, handler_function))
+                         name=('Client %s' % name),
+                         args=(d, url, method, handler_function, heading))
     t.start()
 
 
-def do_request_async_target(d, url, method, handler_function):
-    print
+def do_request_async_target(d, url, method, handler_function, heading):
     mc = d.make_request(url, method, handler_function=handler_function)
-    print
-    print_message_chain(mc)
+    print_message_chain(mc, heading)
 
 
 def run():
     server = 'localhost'
     port = 8081
-    server_address = (server, port)
 
-    d = deproxy.Deproxy(server_address)
+    d = deproxy.Deproxy()
+    d.add_endpoint((server, port))
     d.add_endpoint((server, port + 1))
 
     target = server
@@ -74,27 +79,25 @@ def run():
 
     print "======== Normal Functionality ========"
 
-    print
     mc = d.make_request(url, 'GET')
-    print
     print_message_chain(mc)
 
-    print
     mc = d.make_request(url2, 'GET', handler_function=handler2)
-    print
     print_message_chain(mc)
 
-    print
     mc = d.make_request(url2, 'GET', handler_function=deproxy.echo_handler)
-    print
     print_message_chain(mc)
 
     print "======== Multi-threaded Functionality ========"
 
-    do_request_async(d, url, 'GET', handler_function=deproxy.delay_and_then(2,
-                                                        deproxy.echo_handler))
+    do_request_async(d, url, 'GET',
+                     deproxy.delay_and_then(2, deproxy.echo_handler),
+                     'mt-1: Delay with echo, endpoint-0', 'mt-1')
 
-    do_request_async(d, url2, 'GET', handler_function=deproxy.default_handler)
+    do_request_async(d, url2, 'GET', deproxy.default_handler,
+                     'mt-2: default handler, endpoint-1', 'mt-2')
+    do_request_async(d, url, 'GET', handler2,
+                     'mt-3: handler2, endpoint-0', 'mt-3')
 
 if __name__ == '__main__':
     run()
