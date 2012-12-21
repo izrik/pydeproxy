@@ -112,6 +112,24 @@ class Deproxy:
         urlparts[1] = ''
         path = urlparse.urlunsplit(urlparts)
 
+        try_add_value_case_insensitive(headers, 'Host', host)
+        try_add_value_case_insensitive(headers, 'Accept', '*/*')
+        try_add_value_case_insensitive(headers, 'Accept-Encoding', 'identity, deflate, compress, gzip')
+        try_add_value_case_insensitive(headers, 'User-Agent', version_string)
+
+        request = Request(method, path, 'HTTP/1.0', headers, request_body)
+
+        response = self.send_request(scheme, host, request)
+
+        self.remove_message_chain(request_id)
+
+        message_chain.sent_request = request
+        message_chain.received_response = response
+
+        return message_chain
+
+    def send_request(self, scheme, host, request):
+
         hostparts = host.split(':')
         if len(hostparts) > 1:
             port = hostparts[1]
@@ -123,23 +141,11 @@ class Deproxy:
         hostname = hostparts[0]
         hostip = socket.gethostbyname(hostname)
 
-        try_add_value_case_insensitive(headers, 'Host', host)
-        try_add_value_case_insensitive(headers, 'Accept', '*/*')
-        try_add_value_case_insensitive(headers, 'Accept-Encoding', 'identity, deflate, compress, gzip')
-        try_add_value_case_insensitive(headers, 'User-Agent', version_string)
+        parts = list(urlparse.urlsplit(request.path))
+        parts[0] = scheme
+        parts[1] = host
+        url = urlparse.urlunsplit(parts)
 
-        request = Request(method, path, 'HTTP/1.0', headers, request_body)
-
-        response = self.send_request(url, request)
-
-        self.remove_message_chain(request_id)
-
-        message_chain.sent_request = request
-        message_chain.received_response = response
-
-        return message_chain
-
-    def send_request(self, url, request):
         req = requests.request(request.method, url, return_response=False,
                                headers=request.headers, data=request.body)
         req.send()
