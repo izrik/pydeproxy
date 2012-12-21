@@ -112,6 +112,17 @@ class Deproxy:
         urlparts[1] = ''
         path = urlparse.urlunsplit(urlparts)
 
+        hostparts = host.split(':')
+        if len(hostparts) > 1:
+            port = hostparts[1]
+        else:
+            if scheme == 'https':
+                port = 443
+            else:
+                port = 80
+        hostname = hostparts[0]
+        hostip = socket.gethostbyname(hostname)
+
         try_add_value_case_insensitive(headers, 'Host', host)
         try_add_value_case_insensitive(headers, 'Accept', '*/*')
         try_add_value_case_insensitive(headers, 'Accept-Encoding', 'identity, deflate, compress, gzip')
