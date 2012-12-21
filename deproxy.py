@@ -63,6 +63,13 @@ def try_add_value_case_insensitive(d, key_name, new_value):
     d[key_name] = new_value
     return new_value
 
+def log(s=''):
+    f = inspect.getouterframes(inspect.currentframe(), 1)[1]
+    t = threading.current_thread()
+    print '[%s : %s(%i) : %s : %s (%i)] %s' % (time.ctime(), f[1], f[2], f[3],
+                                               t.name, t.ident, s)
+
+
 class MessageChain:
     def __init__(self, handler_function):
         self.handler_function = handler_function
