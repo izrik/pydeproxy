@@ -5,8 +5,8 @@ import threading
 
 
 def handler2(request):
-    return deproxy.Response('HTTP/1.0', 601, 'Something', {'X-Header': 'Value'},
-                            'this is the body')
+    return deproxy.Response('HTTP/1.0', 601, 'Something',
+                            {'X-Header': 'Value'}, 'this is the body')
 
 
 def print_request(request, heading=None, indent=''):
@@ -19,6 +19,7 @@ def print_request(request, heading=None, indent=''):
         print '%s    %s: %s' % (indent, name, value)
     print '%s  body: %s' % (indent, request.body)
 
+
 def print_response(response, heading=None, indent=''):
     if heading:
         print '%s%s' % (indent, heading)
@@ -29,7 +30,10 @@ def print_response(response, heading=None, indent=''):
         print '%s    %s: %s' % (indent, name, value)
     print '%s  Body: %s' % (indent, response.body)
 
+
 _print_lock = threading.Lock()
+
+
 def print_message_chain(mc, heading=None):
     with _print_lock:
         if heading:
@@ -38,14 +42,15 @@ def print_message_chain(mc, heading=None):
         i = 0
         for h in mc.handlings:
             print '    Handling %i: "%s (%s:%i)' % (i, h.endpoint.name,
-                                                       h.endpoint.address[0],
-                                                       h.endpoint.address[1])
+                                                    h.endpoint.address[0],
+                                                    h.endpoint.address[1])
             print_request(h.request, 'Received Request', '        ')
             print_response(h.response, 'Sent Response', '        ')
             i += 1
         print_response(mc.received_response, 'Received Response', '    ')
         print
         print
+
 
 def do_request_async(d, url, method, handler_function, heading, name):
     t = threading.Thread(target=do_request_async_target,
@@ -62,7 +67,6 @@ def do_request_async_target(d, url, method, handler_function, heading):
 def run():
     server = 'localhost'
     port = 8081
-    server_address = (server, port)
 
     d = deproxy.Deproxy()
     d.add_endpoint((server, port))
