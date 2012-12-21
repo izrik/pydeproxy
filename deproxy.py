@@ -128,21 +128,21 @@ class Deproxy:
         try_add_value_case_insensitive(headers, 'Accept-Encoding', 'identity, deflate, compress, gzip')
         try_add_value_case_insensitive(headers, 'User-Agent', version_string)
 
-        message_chain.sent_request = Request(method, path, 'HTTP/1.0',
-                                             headers, request_body)
+        request = Request(method, path, 'HTTP/1.0', headers, request_body)
+
+        message_chain.sent_request = request
 
         req = requests.request(method, url, return_response=False,
                                headers=headers, data=request_body)
         req.send()
         resp = req.response
 
+        response = Response('HTTP/1.0', resp.status_code, resp.raw.reason,
+                            resp.headers, resp.text)
+
         self.remove_message_chain(request_id)
 
-        message_chain.received_response = Response('HTTP/1.0',
-                                                   resp.status_code,
-                                                   resp.raw.reason,
-                                                   resp.headers,
-                                                   resp.text)
+        message_chain.received_response = response
 
         return message_chain
 
