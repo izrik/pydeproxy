@@ -113,6 +113,12 @@ class MessageChain:
         with self.lock:
             self.handlings.append(handling)
 
+    def __repr__(self):
+        return ('MessageChain(handler_function=%r, sent_request=%r, '
+                'handlings=%r, received_response=%r)' %
+                (self.handler_function, self.sent_request, self.handlings,
+                 self.received_response))
+
 
 class Deproxy:
     def __init__(self):
