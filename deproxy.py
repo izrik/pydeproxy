@@ -22,12 +22,30 @@ deproxy_version = "Deproxy/0.1"
 version_string = deproxy_version + ' ' + python_version
 
 
-Request = collections.namedtuple('Request', ['method', 'path', 'protocol',
-                                             'headers', 'body'])
-Response = collections.namedtuple('Response', ['protocol', 'code', 'message',
-                                               'headers', 'body'])
-Handling = collections.namedtuple('Handling', ['endpoint', 'request',
-                                               'response'])
+
+class Request:
+    def __init__(self, method, path, protocol, headers, body):
+        self.method = method
+        self.path = path
+        self.protocol = protocol
+        self.headers = dict(headers)
+        self.body = body
+
+
+class Response:
+    def __init__(self, protocol, code, message, headers, body):
+        self.protocol = protocol
+        self.code = code
+        self.message = message
+        self.headers = dict(headers)
+        self.body = body
+
+
+class Handling:
+    def __init__(self, endpoint, request, response):
+        self.endpoint = endpoint
+        self.request = request
+        self.response = response
 
 
 def default_handler(request):
