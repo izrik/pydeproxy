@@ -67,6 +67,16 @@ def try_add_value_case_insensitive(d, key_name, new_value):
     return new_value
 
 
+def try_del_key_case_insensitive(d, key_name):
+    to_delete = []
+    for name, value in d.items():
+        if name.lower() == key_name.lower():
+            to_delete.append(name)
+    for name in to_delete:
+        del d[name]
+    return (len(to_delete) > 0)
+
+
 def log(s=''):
     f = inspect.getouterframes(inspect.currentframe(), 1)[1]
     t = threading.current_thread()
