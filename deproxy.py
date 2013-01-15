@@ -423,7 +423,7 @@ class DeproxyEndpoint:
 
             found = try_get_value_case_insensitive(resp.headers,
                                                    request_id_header_name)
-            if not found:
+            if not found and request_id is not None:
                 resp.headers[request_id_header_name] = request_id
 
             outgoing_response = resp
