@@ -24,9 +24,7 @@ deproxy_version = "Deproxy/0.1"
 version_string = deproxy_version + ' ' + python_version
 
 
-logging.basicConfig(format='%(levelname)s:%(name)s:[%(asctime)s : '
-                    '%(filename)s(%(lineno)i) : %(funcName)s : %(threadName)s '
-                    '(%(thread)i)] %(message)s', level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 
 class Request:
@@ -65,20 +63,20 @@ class Handling:
 
 
 def default_handler(request):
-    logging.debug('')
+    logger.debug('')
     # returns a Response, comprised of status_code, status_message,
     # headers (list of key/value pairs), response_body (text or stream)
     return Response(200, 'OK', {}, '')
 
 
 def echo_handler(request):
-    logging.debug('')
+    logger.debug('')
     return Response(200, 'OK', request.headers, request.body)
 
 
 def delay_and_then(seconds, handler_function):
     def delay(request):
-        logging.debug('delaying for %i seconds' % seconds)
+        logger.debug('delaying for %i seconds' % seconds)
         time.sleep(seconds)
         return handler_function(request)
     return delay
@@ -127,7 +125,7 @@ class Deproxy:
 
     def make_request(self, url, method='GET', headers=None, request_body='',
                      handler_function=default_handler):
-        logging.debug('')
+        logger.debug('')
 
         if headers is None:
             headers = {}
@@ -208,7 +206,7 @@ class Deproxy:
         return response
 
     def add_endpoint(self, server_address, name=None):
-        logging.debug('')
+        logger.debug('')
         endpoint = None
         with self._endpoint_lock:
             if name is None:
@@ -218,17 +216,17 @@ class Deproxy:
             return endpoint
 
     def add_message_chain(self, request_id, message_chain):
-        logging.debug('request_id = %s' % request_id)
+        logger.debug('request_id = %s' % request_id)
         with self._message_chains_lock:
             self._message_chains[request_id] = message_chain
 
     def remove_message_chain(self, request_id):
-        logging.debug('request_id = %s' % request_id)
+        logger.debug('request_id = %s' % request_id)
         with self._message_chains_lock:
             del self._message_chains[request_id]
 
     def get_message_chain(self, request_id):
-        logging.debug('request_id = %s' % request_id)
+        logger.debug('request_id = %s' % request_id)
         with self._message_chains_lock:
             if request_id in self._message_chains:
                 return self._message_chains[request_id]
@@ -238,7 +236,7 @@ class Deproxy:
 
 class DeproxyEndpoint:
     def __init__(self, deproxy, server_address, name):
-        logging.debug('server_address=%s, name=%s' % (server_address, name))
+        logger.debug('server_address=%s, name=%s' % (server_address, name))
 
         self.server_address = server_address
         self.__is_shut_down = threading.Event()
@@ -268,7 +266,7 @@ class DeproxyEndpoint:
         server_thread.start()
 
     def process_new_connection(self, request, client_address):
-        logging.debug('received request from %s' % str(client_address))
+        logger.debug('received request from %s' % str(client_address))
         try:
             connection = request
             endpoint = self
@@ -318,7 +316,7 @@ class DeproxyEndpoint:
         self.timeout. If you need to do periodic tasks, do them in
         another thread.
         """
-        logging.debug('')
+        logger.debug('')
         self.__is_shut_down.clear()
         try:
             while not self.__shutdown_request:
