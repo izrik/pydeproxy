@@ -245,12 +245,10 @@ class DeproxyEndpoint:
     def __init__(self, deproxy, server_address, name):
         logging.debug('server_address=%s, name=%s' % (server_address, name))
 
-        # BaseServer init
         self.server_address = server_address
         self.__is_shut_down = threading.Event()
         self.__shutdown_request = False
 
-        # TCPServer init
         self.socket = socket.socket(self.address_family,
                                     self.socket_type)
 
@@ -264,7 +262,6 @@ class DeproxyEndpoint:
 
         self.socket.listen(self.request_queue_size)
 
-        # DeproxyEndpoint init
         self.deproxy = deproxy
         self.name = name
         self.address = server_address
@@ -275,15 +272,7 @@ class DeproxyEndpoint:
         server_thread.daemon = True
         server_thread.start()
 
-    ### ThreadingMixIn
-    daemon_threads = False
-
     def process_new_connection(self, request, client_address):
-        """Same as in BaseServer but as a thread.
-
-        In addition, exception handling is done here.
-
-        """
         logging.debug('received request from %s' % str(client_address))
         try:
             connection = request
@@ -357,8 +346,7 @@ class DeproxyEndpoint:
                                       (self._conn_number, self.name)),
                                 args=(request, client_address))
                             self._conn_number += 1
-                        if self.daemon_threads:
-                            t.setDaemon(1)
+                        t.daemon = True
                         t.start()
 
                     except:
@@ -552,11 +540,9 @@ class DeproxyEndpoint:
         if message is None:
             message = short
         explain = long
-        # using _quote_html to prevent Cross Site Scripting attacks
-        # (see bug #1100201)
-        error_message_format = """Error code %(code)d.
-Message: %(message)s.
-Error code explanation: %(code)s = %(explain)s."""
+        error_message_format = ("Error code %(code)d.\nMessage: %(message)s.\n"
+                                "Error code explanation: %(code)s = "
+                                "%(explain)s.")
         content = (error_message_format %
                    {'code': code, 'message': message,
                     'explain': explain})
