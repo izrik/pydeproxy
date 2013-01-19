@@ -94,6 +94,22 @@ def try_del_key_case_insensitive(d, key_name):
     return (len(to_delete) > 0)
 
 
+def text_from_file(file):
+    try:
+        s = file.read()
+        return s
+    except AttributeError:
+        return str(file)
+
+
+def lines_from_file(file):
+    try:
+        s = file.read()
+        return s.splitlines()
+    except AttributeError:
+        return str(file).splitlines()
+
+
 def log(s=''):
     f = inspect.getouterframes(inspect.currentframe(), 1)[1]
     t = threading.current_thread()
