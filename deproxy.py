@@ -36,10 +36,11 @@ class Request:
         self.protocol = protocol
         self.headers = dict(headers)
         self.body = body
+
     def __repr__(self):
         return ('Request(method=%r, path=%r, protocol=%r, headers=%r, '
                 'body=%r)' % (self.method, self.path, self.protocol,
-                                       self.headers, self.body))
+                              self.headers, self.body))
 
 
 class Response:
@@ -49,10 +50,11 @@ class Response:
         self.message = message
         self.headers = dict(headers)
         self.body = body
+
     def __repr__(self):
         return ('Response(protocol=%r, code=%r, message=%r, headers=%r, '
                 'body=%r)' % (self.protocol, self.code, self.message,
-                                       self.headers, self.body))
+                              self.headers, self.body))
 
 
 class Handling:
@@ -60,6 +62,7 @@ class Handling:
         self.endpoint = endpoint
         self.request = request
         self.response = response
+
     def __repr__(self):
         return ('Handling(endpoint=%r, request=%r, response=%r)' %
                 (self.endpoint, self.request, self.response))
