@@ -30,31 +30,27 @@ logging.basicConfig(format='%(levelname)s:%(name)s:[%(asctime)s : '
 
 
 class Request:
-    def __init__(self, method, path, protocol, headers, body):
+    def __init__(self, method, path, headers, body):
         self.method = method
         self.path = path
-        self.protocol = protocol
         self.headers = dict(headers)
         self.body = body
 
     def __repr__(self):
-        return ('Request(method=%r, path=%r, protocol=%r, headers=%r, '
-                'body=%r)' % (self.method, self.path, self.protocol,
-                              self.headers, self.body))
+        return ('Request(method=%r, path=%r, headers=%r, body=%r)' %
+                (self.method, self.path, self.headers, self.body))
 
 
 class Response:
-    def __init__(self, protocol, code, message, headers, body):
-        self.protocol = protocol
+    def __init__(self, code, message, headers, body):
         self.code = code
         self.message = message
         self.headers = dict(headers)
         self.body = body
 
     def __repr__(self):
-        return ('Response(protocol=%r, code=%r, message=%r, headers=%r, '
-                'body=%r)' % (self.protocol, self.code, self.message,
-                              self.headers, self.body))
+        return ('Response(code=%r, message=%r, headers=%r, body=%r)' %
+                (self.code, self.message, self.headers, self.body))
 
 
 class Handling:
@@ -72,12 +68,12 @@ def default_handler(request):
     logging.debug('')
     # returns a Response, comprised of status_code, status_message,
     # headers (list of key/value pairs), response_body (text or stream)
-    return Response('HTTP/1.0', 200, 'OK', {}, '')
+    return Response(200, 'OK', {}, '')
 
 
 def echo_handler(request):
     logging.debug('')
-    return Response('HTTP/1.0', 200, 'OK', request.headers, request.body)
+    return Response(200, 'OK', request.headers, request.body)
 
 
 def delay_and_then(seconds, handler_function):
@@ -156,7 +152,7 @@ class Deproxy:
                                        'identity, deflate, compress, gzip')
         try_add_value_case_insensitive(headers, 'User-Agent', version_string)
 
-        request = Request(method, path, 'HTTP/1.0', headers, request_body)
+        request = Request(method, path, headers, request_body)
 
         response = self.send_request(scheme, host, request)
 
@@ -180,8 +176,7 @@ class Deproxy:
         hostname = hostparts[0]
         hostip = socket.gethostbyname(hostname)
 
-        request_line = '%s %s %s\r\n' % (request.method, request.path,
-                                         'HTTP/1.0')
+        request_line = '%s %s HTTP/1.1\r\n' % (request.method, request.path)
         lines = [request_line]
 
         for name, value in request.headers.iteritems():
@@ -208,7 +203,7 @@ class Deproxy:
 
         response_headers = dict(mimetools.Message(rfile, 0))
 
-        response = Response(proto, code, message, response_headers, rfile)
+        response = Response(code, message, response_headers, rfile)
 
         return response
 
@@ -388,23 +383,30 @@ class DeproxyEndpoint:
 
     # The version of the HTTP protocol we support.
     # Set this to HTTP/1.1 to enable automatic keepalive
-    protocol_version = "HTTP/1.0"
+    protocol_version = "HTTP/1.1"
 
     # Disable nagle algoritm for this socket, if True.
     # Use only when wbufsize != 0, to avoid small packets.
     disable_nagle_algorithm = False
 
     def handle_one_request(self, rfile, wfile, endpoint):
+        close_connection = True
         try:
-            incoming_request = self.parse_request(rfile, wfile)
-            if not incoming_request:
+            ret = self.parse_request(rfile, wfile)
+            if not ret:
                 return 1
 
-            close_connection = 1
-            if incoming_request.protocol == 'HTTP/1.1':
-                if self.protocol_version >= "HTTP/1.1":
-                    close_connection = self.check_close_connection(
-                        incoming_request.headers)
+            (incoming_request, persistent_connection) = ret
+
+            if persistent_connection:
+                close_connection = False
+                conn_value = try_get_value_case_insensitive(
+                    incoming_request.headers, 'connection')
+                if conn_value:
+                    if conn_value.lower() == 'close':
+                        close_connection = True
+            else:
+                close_connection = True
 
             handler_function = default_handler
             message_chain = None
@@ -435,24 +437,23 @@ class DeproxyEndpoint:
 
             wfile.flush()
 
-            if not close_connection:
-                return self.check_close_connection(resp.headers)
+            if persistent_connection and not close_connection:
+                conn_value = try_get_value_case_insensitive(
+                    incoming_request.headers, 'connection')
+                if conn_value:
+                    if conn_value.lower() == 'close':
+                        close_connection = True
 
         except socket.timeout, e:
-            pass
+            close_connection = True
 
-        return 1
+        return close_connection
 
     def check_close_connection(self, headers):
-        if self.protocol_version >= "HTTP/1.1":
-            conn_value = try_get_value_case_insensitive(headers, 'connection')
-            if conn_value:
-                if conn_value.lower() == 'close':
-                    return 1
-                elif conn_value.lower() == 'keep-alive':
-                    return 0
-        else:
-            return 1
+        conn_value = try_get_value_case_insensitive(headers, 'connection')
+        if conn_value:
+            if conn_value.lower() == 'close':
+                return 1
         return 0
 
     def parse_request(self, rfile, wfile):
@@ -515,10 +516,15 @@ class DeproxyEndpoint:
                             "Invalid HTTP Version (%s)" % version)
             return ()
 
-        # Examine the headers and look for a Connection directive
         headers = dict(mimetools.Message(rfile, 0))
 
-        return Request(method, path, version, headers, rfile)
+        persistent_connection = False
+        if version == 'HTTP/1.1':
+            value = try_get_value_case_insensitive(headers, 'Connection')
+            if value != 'close':
+                persistent_connection = True
+
+        return (Request(method, path, headers, rfile), persistent_connection)
 
     def send_error(self, wfile, code, method, request_version, message=None):
         """Send and log an error reply.
@@ -567,9 +573,8 @@ class DeproxyEndpoint:
                 message = messages_by_response_code[response.code][0]
             else:
                 message = ''
-        if response.protocol != 'HTTP/0.9':
-            wfile.write("%s %d %s\r\n" %
-                        (response.protocol, response.code, message))
+        wfile.write("HTTP/1.1 %d %s\r\n" %
+                    (response.code, message))
 
         headers = dict(response.headers)
         lowers = {}
@@ -583,10 +588,9 @@ class DeproxyEndpoint:
         if 'date' not in lowers:
             headers['Date'] = self.date_time_string()
 
-        if response.protocol != 'HTTP/0.9':
-            for name, value in headers.iteritems():
-                wfile.write("%s: %s\r\n" % (name, value))
-            wfile.write("\r\n")
+        for name, value in headers.iteritems():
+            wfile.write("%s: %s\r\n" % (name, value))
+        wfile.write("\r\n")
 
         # Send the response body
         wfile.write(response.body)
