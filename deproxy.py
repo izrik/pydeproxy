@@ -10,6 +10,8 @@ import sys
 import mimetools
 import urlparse
 import inspect
+import logging
+
 
 # The Python system version, truncated to its first component.
 python_version = "Python/" + sys.version.split()[0]
@@ -22,32 +24,79 @@ deproxy_version = "Deproxy/0.1"
 version_string = deproxy_version + ' ' + python_version
 
 
-Request = collections.namedtuple('Request', ['method', 'path', 'protocol',
-                                             'headers', 'body'])
-Response = collections.namedtuple('Response', ['protocol', 'code', 'message',
-                                               'headers', 'body'])
-Handling = collections.namedtuple('Handling', ['endpoint', 'request',
-                                               'response'])
+logger = logging.getLogger(__name__)
+
+
+class Request:
+    def __init__(self, method, path, headers, body):
+        self.method = method
+        self.path = path
+        self.headers = dict(headers)
+        self.body = body
+
+    def __repr__(self):
+        return ('Request(method=%r, path=%r, headers=%r, body=%r)' %
+                (self.method, self.path, self.headers, self.body))
+
+
+class Response:
+    def __init__(self, code, message, headers, body):
+        self.code = code
+        self.message = message
+        self.headers = dict(headers)
+        self.body = body
+
+    def __repr__(self):
+        return ('Response(code=%r, message=%r, headers=%r, body=%r)' %
+                (self.code, self.message, self.headers, self.body))
+
+
+class Handling:
+    def __init__(self, endpoint, request, response):
+        self.endpoint = endpoint
+        self.request = request
+        self.response = response
+
+    def __repr__(self):
+        return ('Handling(endpoint=%r, request=%r, response=%r)' %
+                (self.endpoint, self.request, self.response))
 
 
 def default_handler(request):
-    log()
+    logger.debug('')
     # returns a Response, comprised of status_code, status_message,
     # headers (list of key/value pairs), response_body (text or stream)
-    return Response('HTTP/1.0', 200, 'OK', {}, '')
+    return Response(200, 'OK', {}, '')
 
 
 def echo_handler(request):
-    log()
-    return Response('HTTP/1.0', 200, 'OK', request.headers, request.body)
+    logger.debug('')
+    return Response(200, 'OK', request.headers, request.body)
 
 
 def delay_and_then(seconds, handler_function):
     def delay(request):
-        log('delaying for %i seconds' % seconds)
+        logger.debug('delaying for %i seconds' % seconds)
         time.sleep(seconds)
         return handler_function(request)
     return delay
+
+
+def route(scheme, host, deproxy):
+    log()
+
+    def route_to_host(request):
+        log('request = %s,%s,%s' % (request.method, request.path, request.protocol))
+        log('scheme, host = %s, %s' % (scheme, host))
+        request2 = Request(request.method, request.path, 'HTTP/1.0', request.headers, request.body)
+        try_del_key_case_insensitive(request2.headers, 'Host')
+        log('sending request')
+        response = deproxy.send_request(scheme, host, request2)
+        log('received response')
+        return response
+
+    return route_to_host
+
 
 request_id_header_name = 'Deproxy-Request-ID'
 
@@ -67,11 +116,30 @@ def try_add_value_case_insensitive(d, key_name, new_value):
     return new_value
 
 
-def log(s=''):
-    f = inspect.getouterframes(inspect.currentframe(), 1)[1]
-    t = threading.current_thread()
-    print '[%s : %s(%i) : %s : %s (%i)] %s' % (time.ctime(), f[1], f[2], f[3],
-                                               t.name, t.ident, s)
+def try_del_key_case_insensitive(d, key_name):
+    to_delete = []
+    for name, value in d.items():
+        if name.lower() == key_name.lower():
+            to_delete.append(name)
+    for name in to_delete:
+        del d[name]
+    return (len(to_delete) > 0)
+
+
+def text_from_file(file):
+    try:
+        s = file.read()
+        return s
+    except AttributeError:
+        return str(file)
+
+
+def lines_from_file(file):
+    try:
+        s = file.read()
+        return s.splitlines()
+    except AttributeError:
+        return str(file).splitlines()
 
 
 class MessageChain:
@@ -84,6 +152,12 @@ class MessageChain:
         with self.lock:
             self.handlings.append(handling)
 
+    def __repr__(self):
+        return ('MessageChain(handler_function=%r, sent_request=%r, '
+                'handlings=%r, received_response=%r)' %
+                (self.handler_function, self.sent_request, self.handlings,
+                 self.received_response))
+
 
 class Deproxy:
     def __init__(self):
@@ -94,7 +168,7 @@ class Deproxy:
 
     def make_request(self, url, method='GET', headers=None, request_body='',
                      handler_function=default_handler):
-        log()
+        logger.debug('')
 
         if headers is None:
             headers = {}
@@ -119,7 +193,7 @@ class Deproxy:
                                        'identity, deflate, compress, gzip')
         try_add_value_case_insensitive(headers, 'User-Agent', version_string)
 
-        request = Request(method, path, 'HTTP/1.0', headers, request_body)
+        request = Request(method, path, headers, request_body)
 
         response = self.send_request(scheme, host, request)
 
@@ -143,8 +217,7 @@ class Deproxy:
         hostname = hostparts[0]
         hostip = socket.gethostbyname(hostname)
 
-        request_line = '%s %s %s\r\n' % (request.method, request.path,
-                                         'HTTP/1.0')
+        request_line = '%s %s HTTP/1.1\r\n' % (request.method, request.path)
         lines = [request_line]
 
         for name, value in request.headers.iteritems():
@@ -171,12 +244,12 @@ class Deproxy:
 
         response_headers = dict(mimetools.Message(rfile, 0))
 
-        response = Response(proto, code, message, response_headers, rfile)
+        response = Response(code, message, response_headers, rfile)
 
         return response
 
     def add_endpoint(self, server_address, name=None):
-        log()
+        logger.debug('')
         endpoint = None
         with self._endpoint_lock:
             if name is None:
@@ -186,17 +259,17 @@ class Deproxy:
             return endpoint
 
     def add_message_chain(self, request_id, message_chain):
-        log('request_id = %s' % request_id)
+        logger.debug('request_id = %s' % request_id)
         with self._message_chains_lock:
             self._message_chains[request_id] = message_chain
 
     def remove_message_chain(self, request_id):
-        log('request_id = %s' % request_id)
+        logger.debug('request_id = %s' % request_id)
         with self._message_chains_lock:
             del self._message_chains[request_id]
 
     def get_message_chain(self, request_id):
-        log('request_id = %s' % request_id)
+        logger.debug('request_id = %s' % request_id)
         with self._message_chains_lock:
             if request_id in self._message_chains:
                 return self._message_chains[request_id]
@@ -206,14 +279,12 @@ class Deproxy:
 
 class DeproxyEndpoint:
     def __init__(self, deproxy, server_address, name):
-        log('server_address=%s, name=%s' % (server_address, name))
+        logger.debug('server_address=%s, name=%s' % (server_address, name))
 
-        # BaseServer init
         self.server_address = server_address
         self.__is_shut_down = threading.Event()
         self.__shutdown_request = False
 
-        # TCPServer init
         self.socket = socket.socket(self.address_family,
                                     self.socket_type)
 
@@ -227,7 +298,6 @@ class DeproxyEndpoint:
 
         self.socket.listen(self.request_queue_size)
 
-        # DeproxyEndpoint init
         self.deproxy = deproxy
         self.name = name
         self.address = server_address
@@ -238,16 +308,8 @@ class DeproxyEndpoint:
         server_thread.daemon = True
         server_thread.start()
 
-    ### ThreadingMixIn
-    daemon_threads = False
-
     def process_new_connection(self, request, client_address):
-        """Same as in BaseServer but as a thread.
-
-        In addition, exception handling is done here.
-
-        """
-        log('received request from %s' % str(client_address))
+        logger.debug('received request from %s' % str(client_address))
         try:
             connection = request
             endpoint = self
@@ -297,7 +359,7 @@ class DeproxyEndpoint:
         self.timeout. If you need to do periodic tasks, do them in
         another thread.
         """
-        log()
+        logger.debug('')
         self.__is_shut_down.clear()
         try:
             while not self.__shutdown_request:
@@ -320,8 +382,7 @@ class DeproxyEndpoint:
                                       (self._conn_number, self.name)),
                                 args=(request, client_address))
                             self._conn_number += 1
-                        if self.daemon_threads:
-                            t.setDaemon(1)
+                        t.daemon = True
                         t.start()
 
                     except:
@@ -363,23 +424,30 @@ class DeproxyEndpoint:
 
     # The version of the HTTP protocol we support.
     # Set this to HTTP/1.1 to enable automatic keepalive
-    protocol_version = "HTTP/1.0"
+    protocol_version = "HTTP/1.1"
 
     # Disable nagle algoritm for this socket, if True.
     # Use only when wbufsize != 0, to avoid small packets.
     disable_nagle_algorithm = False
 
     def handle_one_request(self, rfile, wfile, endpoint):
+        close_connection = True
         try:
-            incoming_request = self.parse_request(rfile, wfile)
-            if not incoming_request:
+            ret = self.parse_request(rfile, wfile)
+            if not ret:
                 return 1
 
-            close_connection = 1
-            if incoming_request.protocol == 'HTTP/1.1':
-                if self.protocol_version >= "HTTP/1.1":
-                    close_connection = self.check_close_connection(
-                        incoming_request.headers)
+            (incoming_request, persistent_connection) = ret
+
+            if persistent_connection:
+                close_connection = False
+                conn_value = try_get_value_case_insensitive(
+                    incoming_request.headers, 'connection')
+                if conn_value:
+                    if conn_value.lower() == 'close':
+                        close_connection = True
+            else:
+                close_connection = True
 
             handler_function = default_handler
             message_chain = None
@@ -396,7 +464,7 @@ class DeproxyEndpoint:
 
             found = try_get_value_case_insensitive(resp.headers,
                                                    request_id_header_name)
-            if not found:
+            if not found and request_id is not None:
                 resp.headers[request_id_header_name] = request_id
 
             outgoing_response = resp
@@ -410,25 +478,17 @@ class DeproxyEndpoint:
 
             wfile.flush()
 
-            if not close_connection:
-                return self.check_close_connection(resp.headers)
+            if persistent_connection and not close_connection:
+                conn_value = try_get_value_case_insensitive(
+                    incoming_request.headers, 'connection')
+                if conn_value:
+                    if conn_value.lower() == 'close':
+                        close_connection = True
 
         except socket.timeout, e:
-            pass
+            close_connection = True
 
-        return 1
-
-    def check_close_connection(self, headers):
-        if self.protocol_version >= "HTTP/1.1":
-            conn_value = try_get_value_case_insensitive(headers, 'connection')
-            if conn_value:
-                if conn_value.lower() == 'close':
-                    return 1
-                elif conn_value.lower() == 'keep-alive':
-                    return 0
-        else:
-            return 1
-        return 0
+        return close_connection
 
     def parse_request(self, rfile, wfile):
         requestline = rfile.readline(65537)
@@ -490,10 +550,15 @@ class DeproxyEndpoint:
                             "Invalid HTTP Version (%s)" % version)
             return ()
 
-        # Examine the headers and look for a Connection directive
         headers = dict(mimetools.Message(rfile, 0))
 
-        return Request(method, path, version, headers, rfile)
+        persistent_connection = False
+        if version == 'HTTP/1.1':
+            value = try_get_value_case_insensitive(headers, 'Connection')
+            if value != 'close':
+                persistent_connection = True
+
+        return (Request(method, path, headers, rfile), persistent_connection)
 
     def send_error(self, wfile, code, method, request_version, message=None):
         """Send and log an error reply.
@@ -515,11 +580,9 @@ class DeproxyEndpoint:
         if message is None:
             message = short
         explain = long
-        # using _quote_html to prevent Cross Site Scripting attacks
-        # (see bug #1100201)
-        error_message_format = """Error code %(code)d.
-Message: %(message)s.
-Error code explanation: %(code)s = %(explain)s."""
+        error_message_format = ("Error code %(code)d.\nMessage: %(message)s.\n"
+                                "Error code explanation: %(code)s = "
+                                "%(explain)s.")
         content = (error_message_format %
                    {'code': code, 'message': message,
                     'explain': explain})
@@ -544,9 +607,8 @@ Error code explanation: %(code)s = %(explain)s."""
                 message = messages_by_response_code[response.code][0]
             else:
                 message = ''
-        if response.protocol != 'HTTP/0.9':
-            wfile.write("%s %d %s\r\n" %
-                        (response.protocol, response.code, message))
+        wfile.write("HTTP/1.1 %d %s\r\n" %
+                    (response.code, message))
 
         headers = dict(response.headers)
         lowers = {}
@@ -560,10 +622,9 @@ Error code explanation: %(code)s = %(explain)s."""
         if 'date' not in lowers:
             headers['Date'] = self.date_time_string()
 
-        if response.protocol != 'HTTP/0.9':
-            for name, value in headers.iteritems():
-                wfile.write("%s: %s\r\n" % (name, value))
-            wfile.write("\r\n")
+        for name, value in headers.iteritems():
+            wfile.write("%s: %s\r\n" % (name, value))
+        wfile.write("\r\n")
 
         # Send the response body
         wfile.write(response.body)
