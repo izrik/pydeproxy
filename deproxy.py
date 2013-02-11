@@ -447,13 +447,6 @@ class DeproxyEndpoint:
 
         return close_connection
 
-    def check_close_connection(self, headers):
-        conn_value = try_get_value_case_insensitive(headers, 'connection')
-        if conn_value:
-            if conn_value.lower() == 'close':
-                return 1
-        return 0
-
     def parse_request(self, rfile, wfile):
         requestline = rfile.readline(65537)
         if len(requestline) > 65536:
