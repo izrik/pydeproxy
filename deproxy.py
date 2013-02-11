@@ -83,16 +83,16 @@ def delay_and_then(seconds, handler_function):
 
 
 def route(scheme, host, deproxy):
-    log()
+    logger.debug('')
 
     def route_to_host(request):
-        log('request = %s,%s,%s' % (request.method, request.path, request.protocol))
-        log('scheme, host = %s, %s' % (scheme, host))
+        logger.debug('request = %s,%s,%s' % (request.method, request.path, request.protocol))
+        logger.debug('scheme, host = %s, %s' % (scheme, host))
         request2 = Request(request.method, request.path, 'HTTP/1.0', request.headers, request.body)
         try_del_key_case_insensitive(request2.headers, 'Host')
-        log('sending request')
+        logger.debug('sending request')
         response = deproxy.send_request(scheme, host, request2)
-        log('received response')
+        logger.debug('received response')
         return response
 
     return route_to_host
