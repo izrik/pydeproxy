@@ -5,7 +5,7 @@ import threading
 
 
 def handler2(request):
-    return deproxy.Response('HTTP/1.0', 601, 'Something',
+    return deproxy.Response(601, 'Something',
                             {'X-Header': 'Value'}, 'this is the body')
 
 
