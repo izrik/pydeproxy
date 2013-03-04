@@ -1,7 +1,7 @@
 deproxy
 =======
 
-Python framework for testing HTTP proxies
+Python library for testing HTTP proxies.
 
 Deproxy is a tool for performing functional/regression testing of procies, and other HTTP intermediaries. It is written in python, and the plan is to incorporate it into unittest-style test scripts for functional tests.
 
