@@ -36,10 +36,6 @@ from .util import *
 request_id_header_name = 'Deproxy-Request-ID'
 
 
-
-
-
-
 class Deproxy:
     """The main class."""
 

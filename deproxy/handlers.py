@@ -8,6 +8,7 @@ from .util import try_del_key_case_insensitive
 
 logger = logging.getLogger(__name__)
 
+
 def default_handler(request):
     """
     Handler function.
