@@ -4,6 +4,7 @@ import time
 
 from .response import Response
 from .request import Request
+from .util import try_del_key_case_insensitive
 
 logger = logging.getLogger(__name__)
 
