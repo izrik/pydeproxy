@@ -7,4 +7,8 @@ setup(
     packages=['deproxy',],
     license='MIT License',
     long_description=open('README.md').read(),
+    author='izrik',
+    author_email='izrik@yahoo.com',
+    url='https://github.com/izrik/deproxy',
+    description='Python library for testing HTTP proxies.',
 )
