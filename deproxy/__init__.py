@@ -27,31 +27,8 @@ version_string = deproxy_version + ' ' + python_version
 logger = logging.getLogger(__name__)
 
 
-class Request:
-    """A simple HTTP Request, with method, path, headers, and body."""
-    def __init__(self, method, path, headers, body):
-        self.method = method
-        self.path = path
-        self.headers = dict(headers)
-        self.body = body
-
-    def __repr__(self):
-        return ('Request(method=%r, path=%r, headers=%r, body=%r)' %
-                (self.method, self.path, self.headers, self.body))
-
-
-class Response:
-    """A simple HTTP Response, with status code, status message, headers, and
-    body."""
-    def __init__(self, code, message, headers, body):
-        self.code = code
-        self.message = message
-        self.headers = dict(headers)
-        self.body = body
-
-    def __repr__(self):
-        return ('Response(code=%r, message=%r, headers=%r, body=%r)' %
-                (self.code, self.message, self.headers, self.body))
+from .request import Request
+from .response import Response
 
 
 class Handling:
@@ -69,66 +46,7 @@ class Handling:
                 (self.endpoint, self.request, self.response))
 
 
-def default_handler(request):
-    """
-    Handler function.
-    Returns a 200 OK Response, with no additional headers or response body.
-    """
-    logger.debug('')
-    return Response(200, 'OK', {}, '')
-
-
-def echo_handler(request):
-    """
-    Handler function.
-    Returns a 200 OK Response, with the same headers and body as the request.
-    """
-    logger.debug('')
-    return Response(200, 'OK', request.headers, request.body)
-
-
-def delay_and_then(seconds, handler_function):
-    """
-    Factory function.
-    Returns a handler that delays the request for the specified number of
-    seconds, forwards it to the next handler function, and returns that
-    handler function's Response.
-    """
-    def delay(request):
-        logger.debug('delaying for %i seconds' % seconds)
-        time.sleep(seconds)
-        return handler_function(request)
-
-    delay.__doc__ = ('Delay for %s seconds, then forward the Request to the '
-                     'next handler' % str(seconds))
-
-    return delay
-
-
-def route(scheme, host, deproxy):
-    """
-    Factory function.
-    Returns a handler that forwards the request to a specified URL, using
-    either HTTP or HTTPS (regardless of what protocol was used in the initial
-    request), and returning the response from the host so routed to.
-    """
-    logger.debug('')
-
-    def route_to_host(request):
-        logger.debug('request = %s,%s,%s' % (request.method, request.path,
-                                             request.protocol))
-        logger.debug('scheme, host = %s, %s' % (scheme, host))
-        request2 = Request(request.method, request.path, 'HTTP/1.0',
-                           request.headers, request.body)
-        try_del_key_case_insensitive(request2.headers, 'Host')
-        logger.debug('sending request')
-        response = deproxy.send_request(scheme, host, request2)
-        logger.debug('received response')
-        return response
-
-    route_to_host.__doc__ = "Route responses to %s using %s" % (host, scheme)
-
-    return route_to_host
+from .handlers import *
 
 
 request_id_header_name = 'Deproxy-Request-ID'
