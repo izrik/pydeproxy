@@ -6,7 +6,7 @@ setup(
     version='0.1',
     packages=['deproxy',],
     license='MIT License',
-    long_description=open('README.md').read(),
+    long_description=open('README.txt').read(),
     author='izrik',
     author_email='izrik@yahoo.com',
     url='https://github.com/izrik/deproxy',
