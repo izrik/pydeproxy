@@ -13,13 +13,17 @@ import inspect
 import logging
 
 
+__version_info__ = (0, 1)
+__version__ = '.'.join(map(str, __version_info__))
+
+
 # The Python system version, truncated to its first component.
 python_version = "Python/" + sys.version.split()[0]
 
 # The server software version.
 # The format is multiple whitespace-separated strings,
 # where each string is of the form name[/version].
-deproxy_version = "Deproxy/0.1"
+deproxy_version = "Deproxy/%s" % __version__
 
 version_string = deproxy_version + ' ' + python_version
 
