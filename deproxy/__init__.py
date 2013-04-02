@@ -13,7 +13,7 @@ import inspect
 import logging
 
 
-__version_info__ = (0, 1, 1)
+__version_info__ = (0, 1, 2)
 __version__ = '.'.join(map(str, __version_info__))
 
 
@@ -176,6 +176,13 @@ class Deproxy:
             else:
                 return None
 
+    def add_orphaned_handling(self, handling):
+        """Add the handling to all available MessageChains."""
+        logger.debug('Adding orphaned hanlding')
+        with self._message_chains_lock:
+            for mc in self._message_chains.itervalues():
+                mc.add_orphaned_handling(handling)
+
 
 class DeproxyEndpoint:
 
@@ -215,7 +222,6 @@ class DeproxyEndpoint:
         logger.debug('received request from %s' % str(client_address))
         try:
             connection = request
-            endpoint = self
             if self.disable_nagle_algorithm:
                 connection.setsockopt(socket.IPPROTO_TCP,
                                       socket.TCP_NODELAY, True)
@@ -223,9 +229,9 @@ class DeproxyEndpoint:
             wfile = connection.makefile('wb', 0)
 
             try:
-                close = self.handle_one_request(rfile, wfile, endpoint)
+                close = self.handle_one_request(rfile, wfile)
                 while not close:
-                    close = self.handle_one_request(rfile, wfile, endpoint)
+                    close = self.handle_one_request(rfile, wfile)
             finally:
                 if not wfile.closed:
                     wfile.flush()
@@ -336,7 +342,7 @@ class DeproxyEndpoint:
     # Use only when wbufsize != 0, to avoid small packets.
     disable_nagle_algorithm = False
 
-    def handle_one_request(self, rfile, wfile, endpoint):
+    def handle_one_request(self, rfile, wfile):
         logger.debug('')
         close_connection = True
         try:
@@ -366,7 +372,7 @@ class DeproxyEndpoint:
                 incoming_request.headers,
                 request_id_header_name)
             if request_id:
-                message_chain = endpoint.deproxy.get_message_chain(request_id)
+                message_chain = self.deproxy.get_message_chain(request_id)
             if message_chain:
                 handler_function = message_chain.handler_function
 
@@ -381,10 +387,11 @@ class DeproxyEndpoint:
 
             outgoing_response = resp
 
+            h = Handling(self, incoming_request, outgoing_response)
             if message_chain:
-                message_chain.add_handling(Handling(endpoint,
-                                                    incoming_request,
-                                                    outgoing_response))
+                message_chain.add_handling(h)
+            else:
+                self.deproxy.add_orphaned_handling(h)
 
             self.send_response(wfile, resp)
 

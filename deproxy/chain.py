@@ -9,13 +9,20 @@ class MessageChain:
     DeproxyEndpoint objects.
     """
     def __init__(self, handler_function):
+        self.sent_request = None
+        self.received_response = None
         self.handler_function = handler_function
         self.handlings = []
+        self.orphaned_handlings = []
         self.lock = threading.Lock()
 
     def add_handling(self, handling):
         with self.lock:
             self.handlings.append(handling)
+
+    def add_orphaned_handling(self, handling):
+        with self.lock:
+            self.orphaned_handlings.append(handling)
 
     def __repr__(self):
         return ('MessageChain(handler_function=%r, sent_request=%r, '
