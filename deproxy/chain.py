@@ -20,6 +20,10 @@ class MessageChain:
         with self.lock:
             self.handlings.append(handling)
 
+    def add_orphaned_handling(self, handling):
+        with self.lock:
+            self.orphaned_handlings.append(handling)
+
     def __repr__(self):
         return ('MessageChain(handler_function=%r, sent_request=%r, '
                 'handlings=%r, received_response=%r)' %
