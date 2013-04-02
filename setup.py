@@ -1,9 +1,10 @@
 
 from distutils.core import setup
+import deproxy
 
 setup(
     name='deproxy',
-    version='0.1',
+    version=deproxy.__version__,
     packages=['deproxy',],
     license='MIT License',
     long_description=open('README.txt').read(),
