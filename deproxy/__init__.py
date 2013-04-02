@@ -388,10 +388,11 @@ class DeproxyEndpoint:
 
             outgoing_response = resp
 
+            h = Handling(endpoint, incoming_request, outgoing_response)
             if message_chain:
-                message_chain.add_handling(Handling(endpoint,
-                                                    incoming_request,
-                                                    outgoing_response))
+                message_chain.add_handling(h)
+            else:
+                self.deproxy.add_orphaned_handling(h)
 
             self.send_response(wfile, resp)
 
