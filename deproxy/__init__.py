@@ -353,6 +353,7 @@ class DeproxyEndpoint:
                         close_connection = True
             else:
                 close_connection = True
+            close_connection = True
 
             handler_function = default_handler
             message_chain = None
