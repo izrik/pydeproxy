@@ -7,6 +7,8 @@ sys.path.append('..')
 
 import deproxy
 import unittest
+import threading
+import logging
 
 
 class TestRoute(unittest.TestCase):
@@ -50,5 +52,32 @@ class TestCustomHandler(unittest.TestCase):
         self.assertEquals(int(mc.received_response.code), 606)
 
 
+class TestOrphanedHandlings(unittest.TestCase):
+    def setUp(self):
+        self.deproxy = deproxy.Deproxy()
+        self.end_point = self.deproxy.add_endpoint(('localhost', 9996))
+        self.other_client = deproxy.Deproxy()
+
+    def test_orphaned_handling(self):
+        delayed_handler = deproxy.delay_and_then(2, deproxy.default_handler)
+        self.long_running_mc = None
+        def other_thread():
+            mc = self.deproxy.make_request('http://localhost:9996/',
+                                           handler_function=delayed_handler)
+            self.long_running_mc = mc
+        t = threading.Thread(target=other_thread)
+        t.daemon = True
+        t.start()
+        self.other_client.make_request('http://localhost:9996/')
+        t.join()
+        self.assertEqual(len(self.long_running_mc.orphaned_handlings), 1)
+
+    #def other_thread(
+
 if __name__ == '__main__':
+    #logging.basicConfig(level=logging.DEBUG,
+    #                    format=('%(asctime)s %(levelname)s:%(name)s:'
+    #                            '%(funcName)s:'
+    #                            '%(filename)s(%(lineno)d):'
+    #                            '%(threadName)s(%(thread)d):%(message)s'))
     unittest.main()
