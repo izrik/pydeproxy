@@ -13,6 +13,7 @@ class MessageChain:
         self.received_response = None
         self.handler_function = handler_function
         self.handlings = []
+        self.orphaned_handlings = []
         self.lock = threading.Lock()
 
     def add_handling(self, handling):
