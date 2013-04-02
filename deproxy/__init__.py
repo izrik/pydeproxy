@@ -56,6 +56,13 @@ class Deproxy:
 
         if headers is None:
             headers = {}
+        else:
+            # if the caller passes in a headers object to specify what http
+            # headers to send, we need to copy it in order to avoid modifying
+            # it. Also, if the caller passes in the same object multiple times,
+            # subsequent calls to try_add_value_case_insensitive wouldn't
+            # change the values in the dictionary.
+            headers = dict(headers)
 
         request_id = str(uuid.uuid4())
         try_add_value_case_insensitive(headers, request_id_header_name,
@@ -112,6 +119,9 @@ class Deproxy:
         lines.append(request.body)
         lines.append('\r\n')
         lines.append('\r\n')
+
+        #for line in lines:
+        #    logger.debug('  ' + line)
 
         logger.debug('Creating connection (hostname="%s", port="%s")' %
                      (hostname, str(port)))
@@ -174,6 +184,9 @@ class Deproxy:
             if request_id in self._message_chains:
                 return self._message_chains[request_id]
             else:
+                #logger.debug('no message chain found for request_id %s' % request_id)
+                #for rid, mc in self._message_chains.iteritems():
+                #    logger.debug('  %s - %s' % (rid, mc))
                 return None
 
     def add_orphaned_handling(self, handling):
@@ -372,6 +385,8 @@ class DeproxyEndpoint:
                 incoming_request.headers,
                 request_id_header_name)
             if request_id:
+                logger.debug('The request has a request id: %s=%s' %
+                             (request_id_header_name, request_id))
                 message_chain = self.deproxy.get_message_chain(request_id)
             if message_chain:
                 handler_function = message_chain.handler_function
@@ -475,6 +490,8 @@ class DeproxyEndpoint:
 
         logger.debug('parsing headers')
         headers = dict(mimetools.Message(rfile, 0))
+        #for key,value in headers.iteritems():
+        #    logger.debug('  %s: %s' % (key, value))
 
         persistent_connection = False
         if version == 'HTTP/1.1':
