@@ -340,6 +340,7 @@ class DeproxyEndpoint:
                         self.shutdown_request(request)
 
         finally:
+            self.socket.close()
             self.__shutdown_request = False
             self.__is_shut_down.set()
 
