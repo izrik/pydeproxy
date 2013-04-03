@@ -61,18 +61,23 @@ class TestOrphanedHandlings(unittest.TestCase):
     def test_orphaned_handling(self):
         delayed_handler = deproxy.delay_and_then(2, deproxy.default_handler)
         self.long_running_mc = None
+
+        class Helper:
+            mc = None
+
+        helper = Helper()
+
         def other_thread():
             mc = self.deproxy.make_request('http://localhost:9996/',
                                            handler_function=delayed_handler)
-            self.long_running_mc = mc
+            helper.mc = mc
+
         t = threading.Thread(target=other_thread)
         t.daemon = True
         t.start()
         self.other_client.make_request('http://localhost:9996/')
         t.join()
-        self.assertEqual(len(self.long_running_mc.orphaned_handlings), 1)
-
-    #def other_thread(
+        self.assertEqual(len(helper.mc.orphaned_handlings), 1)
 
 if __name__ == '__main__':
     #logging.basicConfig(level=logging.DEBUG,
