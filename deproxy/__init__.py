@@ -32,10 +32,14 @@ logger = logging.getLogger(__name__)
 
 from .request import Request
 from .response import Response
-from .handlers import *
+from .handlers import default_handler, echo_handler, delay_and_then, route
 from .handling import Handling
 from .chain import MessageChain
-from .util import *
+from .util import (try_get_value_case_insensitive,
+                   try_add_value_case_insensitive,
+                   try_del_key_case_insensitive, text_from_file,
+                   lines_from_file)
+
 
 request_id_header_name = 'Deproxy-Request-ID'
 
