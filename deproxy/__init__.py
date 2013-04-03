@@ -165,6 +165,17 @@ class Deproxy:
             self._endpoints.append(endpoint)
             return endpoint
 
+    def _remove_endpoint(self, endpoint):
+        """Remove a DeproxyEndpoint from the list of endpoints. Returns True if
+        the endpoint was removed, or False if the endpoint was not in the list.
+        This method should normally not be called by user code. Instead, call
+        the shutdown_endpoint method."""
+        logger.debug('')
+        with self._endpoint_lock:
+            count = len(self._endpoints)
+            self._endpoints = [e for e in self._endpoints if e != endpoint]
+            return (count != len(self._endpoints))
+
     def add_message_chain(self, request_id, message_chain):
         """Add a MessageChain to the internal list for the given request ID."""
         logger.debug('request_id = %s' % request_id)
