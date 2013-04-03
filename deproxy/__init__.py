@@ -253,10 +253,10 @@ class DeproxyEndpoint:
         self.address = server_address
 
         thread_name = 'Thread-%s' % self.name
-        server_thread = threading.Thread(target=self.serve_forever,
-                                         name=thread_name)
-        server_thread.daemon = True
-        server_thread.start()
+        self.server_thread = threading.Thread(target=self.serve_forever,
+                                              name=thread_name)
+        self.server_thread.daemon = True
+        self.server_thread.start()
 
     def process_new_connection(self, request, client_address):
         logger.debug('received request from %s' % str(client_address))
@@ -350,10 +350,12 @@ class DeproxyEndpoint:
         serve_forever() is running in another thread, or it will
         deadlock.
         """
-        logger.debug('')
+        logger.debug('Shutting down "%s"' % self.name)
         self.deproxy._remove_endpoint(self)
         self.__shutdown_request = True
         self.__is_shut_down.wait()
+        self.server_thread.join(timeout=5)
+        logger.debug('Finished shutting down "%s"' % self.name)
 
     def handle_error(self, request, client_address):
         """Handle an error gracefully.  May be overridden.
