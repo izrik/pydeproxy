@@ -40,7 +40,7 @@ class TestCustomHandler(unittest.TestCase):
         self.deproxy = deproxy.Deproxy()
         self.end_point = self.deproxy.add_endpoint(('localhost', 9997))
 
-    def test_default_handler(self):
+    def test_custom_handler(self):
         def custom_handler(request):
             return deproxy.Response(code=606, message="Spoiler",
                                     headers={"Header-Name": "Header-Value"},
