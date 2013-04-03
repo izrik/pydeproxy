@@ -13,7 +13,7 @@ import inspect
 import logging
 
 
-__version_info__ = (0, 1, 4)
+__version_info__ = (0, 1, 5)
 __version__ = '.'.join(map(str, __version_info__))
 
 
@@ -32,10 +32,14 @@ logger = logging.getLogger(__name__)
 
 from .request import Request
 from .response import Response
-from .handlers import *
+from .handlers import default_handler, echo_handler, delay_and_then, route
 from .handling import Handling
 from .chain import MessageChain
-from .util import *
+from .util import (try_get_value_case_insensitive,
+                   try_add_value_case_insensitive,
+                   try_del_key_case_insensitive, text_from_file,
+                   lines_from_file)
+
 
 request_id_header_name = 'Deproxy-Request-ID'
 
@@ -165,6 +169,28 @@ class Deproxy:
             self._endpoints.append(endpoint)
             return endpoint
 
+    def _remove_endpoint(self, endpoint):
+        """Remove a DeproxyEndpoint from the list of endpoints. Returns True if
+        the endpoint was removed, or False if the endpoint was not in the list.
+        This method should normally not be called by user code. Instead, call
+        the endpoint's shutdown method."""
+        logger.debug('')
+        with self._endpoint_lock:
+            count = len(self._endpoints)
+            self._endpoints = [e for e in self._endpoints if e != endpoint]
+            return (count != len(self._endpoints))
+
+    def shutdown_all_endpoints(self):
+        """Shutdown and remove all endpoints in use."""
+        logger.debug('')
+        endpoints = []
+        with self._endpoint_lock:
+            endpoints = list(self._endpoints)
+        # be sure we're not holding the lock when shutdown calls
+        # _remove_endpoint.
+        for e in endpoints:
+            e.shutdown()
+
     def add_message_chain(self, request_id, message_chain):
         """Add a MessageChain to the internal list for the given request ID."""
         logger.debug('request_id = %s' % request_id)
@@ -184,7 +210,8 @@ class Deproxy:
             if request_id in self._message_chains:
                 return self._message_chains[request_id]
             else:
-                #logger.debug('no message chain found for request_id %s' % request_id)
+                #logger.debug('no message chain found for request_id %s' %
+                # request_id)
                 #for rid, mc in self._message_chains.iteritems():
                 #    logger.debug('  %s - %s' % (rid, mc))
                 return None
@@ -226,10 +253,10 @@ class DeproxyEndpoint:
         self.address = server_address
 
         thread_name = 'Thread-%s' % self.name
-        server_thread = threading.Thread(target=self.serve_forever,
-                                         name=thread_name)
-        server_thread.daemon = True
-        server_thread.start()
+        self.server_thread = threading.Thread(target=self.serve_forever,
+                                              name=thread_name)
+        self.server_thread.daemon = True
+        self.server_thread.start()
 
     def process_new_connection(self, request, client_address):
         logger.debug('received request from %s' % str(client_address))
@@ -313,6 +340,7 @@ class DeproxyEndpoint:
                         self.shutdown_request(request)
 
         finally:
+            self.socket.close()
             self.__shutdown_request = False
             self.__is_shut_down.set()
 
@@ -323,9 +351,12 @@ class DeproxyEndpoint:
         serve_forever() is running in another thread, or it will
         deadlock.
         """
-        logger.debug('')
+        logger.debug('Shutting down "%s"' % self.name)
+        self.deproxy._remove_endpoint(self)
         self.__shutdown_request = True
         self.__is_shut_down.wait()
+        self.server_thread.join(timeout=5)
+        logger.debug('Finished shutting down "%s"' % self.name)
 
     def handle_error(self, request, client_address):
         """Handle an error gracefully.  May be overridden.
