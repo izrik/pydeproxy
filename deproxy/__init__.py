@@ -184,7 +184,8 @@ class Deproxy:
             if request_id in self._message_chains:
                 return self._message_chains[request_id]
             else:
-                #logger.debug('no message chain found for request_id %s' % request_id)
+                #logger.debug('no message chain found for request_id %s' %
+                # request_id)
                 #for rid, mc in self._message_chains.iteritems():
                 #    logger.debug('  %s - %s' % (rid, mc))
                 return None
