@@ -35,8 +35,6 @@ class TestDefaultHandler(unittest.TestCase):
         self.assertEquals(int(mc.received_response.code), 200)
 
 
-
-
 class TestCustomHandler(unittest.TestCase):
     def setUp(self):
         self.deproxy = deproxy.Deproxy()
