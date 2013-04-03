@@ -176,6 +176,17 @@ class Deproxy:
             self._endpoints = [e for e in self._endpoints if e != endpoint]
             return (count != len(self._endpoints))
 
+    def shutdown_all_endpoints(self):
+        """Shutdown and remove all endpoints in use."""
+        logger.debug('')
+        endpoints = []
+        with self._endpoint_lock:
+            endpoints = list(self._endpoints)
+        # be sure we're not holding the lock when shutdown calls
+        # _remove_endpoint.
+        for e in endpoints:
+            e.shutdown()
+
     def add_message_chain(self, request_id, message_chain):
         """Add a MessageChain to the internal list for the given request ID."""
         logger.debug('request_id = %s' % request_id)
