@@ -169,7 +169,7 @@ class Deproxy:
         """Remove a DeproxyEndpoint from the list of endpoints. Returns True if
         the endpoint was removed, or False if the endpoint was not in the list.
         This method should normally not be called by user code. Instead, call
-        the shutdown_endpoint method."""
+        the endpoint's shutdown method."""
         logger.debug('')
         with self._endpoint_lock:
             count = len(self._endpoints)
@@ -336,6 +336,7 @@ class DeproxyEndpoint:
         deadlock.
         """
         logger.debug('')
+        self.deproxy._remove_endpoint(self)
         self.__shutdown_request = True
         self.__is_shut_down.wait()
 
