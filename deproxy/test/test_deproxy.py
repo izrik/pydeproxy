@@ -9,6 +9,7 @@ import deproxy
 import unittest
 import threading
 import logging
+import socket
 
 
 class TestRoute(unittest.TestCase):
@@ -76,6 +77,44 @@ class TestOrphanedHandlings(unittest.TestCase):
         self.other_client.make_request('http://localhost:9996/')
         t.join()
         self.assertEqual(len(helper.mc.orphaned_handlings), 1)
+
+
+class TestEndpointShutdown(unittest.TestCase):
+    def setUp(self):
+        self.deproxy = deproxy.Deproxy()
+
+    def test_shutdown(self):
+        e1 = self.deproxy.add_endpoint(('localhost', 9995))
+        e2 = self.deproxy.add_endpoint(('localhost', 9994))
+
+        e1.shutdown()
+
+        try:
+            e3 = self.deproxy.add_endpoint(('localhost', 9995))
+        except socket.error as e:
+            self.fail('Address already in use: %s' % e)
+
+
+class TestShutdownAllEndpoints(unittest.TestCase):
+    def setUp(self):
+        self.deproxy = deproxy.Deproxy()
+
+    def test_shutdown(self):
+        e1 = self.deproxy.add_endpoint(('localhost', 9993))
+        e2 = self.deproxy.add_endpoint(('localhost', 9992))
+
+        self.deproxy.shutdown_all_endpoints()
+
+        try:
+            e3 = self.deproxy.add_endpoint(('localhost', 9993))
+        except socket.error as e:
+            self.fail('add_endpoint through an exception: %s' % e)
+
+        try:
+            e4 = self.deproxy.add_endpoint(('localhost', 9992))
+        except socket.error as e:
+            self.fail('add_endpoint through an exception: %s' % e)
+
 
 if __name__ == '__main__':
     #logging.basicConfig(level=logging.DEBUG,
