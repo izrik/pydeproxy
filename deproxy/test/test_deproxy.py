@@ -35,10 +35,6 @@ class TestDefaultHandler(unittest.TestCase):
         self.assertEquals(int(mc.received_response.code), 200)
 
 
-def custom_handler(request):
-    return deproxy.Response(code=606, message="Spoiler",
-                            headers={"Header-Name": "Header-Value"},
-                            body='Snape Kills Dumbledore')
 
 
 class TestCustomHandler(unittest.TestCase):
@@ -47,6 +43,10 @@ class TestCustomHandler(unittest.TestCase):
         self.end_point = self.deproxy.add_endpoint(('localhost', 9997))
 
     def test_default_handler(self):
+        def custom_handler(request):
+            return deproxy.Response(code=606, message="Spoiler",
+                                    headers={"Header-Name": "Header-Value"},
+                                    body='Snape Kills Dumbledore')
         mc = self.deproxy.make_request('http://localhost:9997/',
                                        handler_function=custom_handler)
         self.assertEquals(int(mc.received_response.code), 606)
