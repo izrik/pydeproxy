@@ -2,9 +2,6 @@
 
 import sys
 
-sys.path.append('.')
-sys.path.append('..')
-
 import deproxy
 import unittest
 import threading
