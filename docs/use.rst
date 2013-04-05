@@ -9,10 +9,11 @@ To use deproxy in your unit tests:
   3. Still in the text method, make assertions against the returned message chain.
   4. In the tearDown method, shutdown the Deproxy object by calling shutdown_all_endpoints.
 
-An example::
+Here's a code example of a unit test that tests the fictional the_proxy module::
 
     import unittest
     import deproxy
+    import the_proxy
 
     class TestTheProxy(unittest.TestCase):
 
@@ -23,6 +24,16 @@ An example::
             # Set up the proxy to listen on port 8080, forwarding requests to
             # localhost:9999, to add an "X-Request" header to requests and an
             # "X-Response" header to responses.
+            self.the_proxy = the_proxy.TheProxy()
+            self.the_proxy.port = 8080
+            self.the_proxy.target_hostname = 'localhost'
+            self.the_proxy.target_port = 9999
+            self.the_proxy.request_ops.add(
+                the_proxy.add_header(name='X-Request',
+                                     value='This is a request'))
+            self.the_proxy.response_ops.add(
+                the_proxy.add_header(name='X-Response',
+                                     value='This is a response'))
 
         def test_the_proxy(self):
             mc = self.deproxy.make_request(method='GET',
@@ -42,8 +53,8 @@ An example::
                             msg="No X-Response header in forwarded response.")
 
         def tearDown(self):
-            #shut down the proxy, if needed
-
+            if self.the_proxy is not None:
+                self.the_proxy.shutdown()
             if self.deproxy is not None:
                 self.deproxy.shutdown_all_endpoints()
 
