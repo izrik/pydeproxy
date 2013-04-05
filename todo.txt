@@ -1,9 +1,3 @@
-split request and response types to distinguish between transmitted and un-transmitted
 super-easy assertions on message chains, handlings, requests, and responses - for use by importers
-automated testing
-use a standard library for logging
 extract classes for handling http version 0.9, 1.0, and 1.1
 add endpoint parameter to handler functions
-docs and/or web pages
-package for pip
-package for deb and rpm
