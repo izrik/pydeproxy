@@ -31,8 +31,8 @@ Built-in Handlers
 
 - default_handler
 The default handler used if none is specified. It returns a response with a 200
-status code, an empty response body, and only the basic 'Date' and 'Server'
-headers.
+status code, an empty response body, and only the basic Date, Server, and
+request id headers.
 
 - echo_handler
 Returns a response with a 200 status code, and copies the request body and
