@@ -11,11 +11,22 @@ import argparse
 
 
 deproxy_port_base = 9999
+deproxy_port_iter = None
+
+
+def get_next_deproxy_port():
+    global deproxy_port_iter
+    if deproxy_port_iter is None:
+        def deproxy_port_iter_func():
+            for i in xrange(deproxy_port_base):
+                yield deproxy_port_base - i
+        deproxy_port_iter = deproxy_port_iter_func().next
+    return deproxy_port_iter()
 
 
 class TestRoute(unittest.TestCase):
     def setUp(self):
-        self.deproxy_port = deproxy_port_base - 0
+        self.deproxy_port = get_next_deproxy_port()
         self.deproxy = deproxy.Deproxy()
         self.end_point = self.deproxy.add_endpoint(('localhost',
                                                     self.deproxy_port))
@@ -32,7 +43,7 @@ class TestRoute(unittest.TestCase):
 
 class TestDefaultHandler(unittest.TestCase):
     def setUp(self):
-        self.deproxy_port = deproxy_port_base - 1
+        self.deproxy_port = get_next_deproxy_port()
         self.deproxy = deproxy.Deproxy()
         self.end_point = self.deproxy.add_endpoint(('localhost',
                                                     self.deproxy_port))
@@ -45,7 +56,7 @@ class TestDefaultHandler(unittest.TestCase):
 
 class TestCustomHandler(unittest.TestCase):
     def setUp(self):
-        self.deproxy_port = deproxy_port_base - 2
+        self.deproxy_port = get_next_deproxy_port()
         self.deproxy = deproxy.Deproxy()
         self.end_point = self.deproxy.add_endpoint(('localhost',
                                                     self.deproxy_port))
@@ -63,7 +74,7 @@ class TestCustomHandler(unittest.TestCase):
 
 class TestOrphanedHandlings(unittest.TestCase):
     def setUp(self):
-        self.deproxy_port = deproxy_port_base - 3
+        self.deproxy_port = get_next_deproxy_port()
         self.deproxy = deproxy.Deproxy()
         self.end_point = self.deproxy.add_endpoint(('localhost',
                                                     self.deproxy_port))
@@ -95,8 +106,8 @@ class TestOrphanedHandlings(unittest.TestCase):
 
 class TestEndpointShutdown(unittest.TestCase):
     def setUp(self):
-        self.deproxy_port1 = deproxy_port_base - 4
-        self.deproxy_port2 = deproxy_port_base - 5
+        self.deproxy_port1 = get_next_deproxy_port()
+        self.deproxy_port2 = get_next_deproxy_port()
         self.deproxy = deproxy.Deproxy()
 
     def test_shutdown(self):
@@ -113,8 +124,8 @@ class TestEndpointShutdown(unittest.TestCase):
 
 class TestShutdownAllEndpoints(unittest.TestCase):
     def setUp(self):
-        self.deproxy_port1 = deproxy_port_base - 6
-        self.deproxy_port2 = deproxy_port_base - 7
+        self.deproxy_port1 = get_next_deproxy_port()
+        self.deproxy_port2 = get_next_deproxy_port()
         self.deproxy = deproxy.Deproxy()
 
     def test_shutdown(self):
