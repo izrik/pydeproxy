@@ -2,6 +2,11 @@
  Handlers
 ==========
 
+Handlers are the things that turn requests into responses. A given call to
+make_request can take a `handler_function` argument that will be called for
+each request that reaches an endpoint. Deproxy includes a number of built-in
+handlers for some of the most common use cases. Also, you can define your own
+handlers.
 ::
 
     >>> d = deproxy.Deproxy()
@@ -24,15 +29,33 @@
 Built-in Handlers
 =================
 
-default_handler
-echo_handler
-delay_and_then(seconds, handler_function)
-route(scheme, host, deproxy)
+- default_handler
+The default handler used if none is specified. It returns a response with a 200
+status code, an empty response body, and only the basic 'Date' and 'Server'
+headers.
+
+- echo_handler
+Returns a response with a 200 status code, and copies the request body and
+request headers.
+
+- delay(timeout, handler_function)
+This is actually a factory function that returns a handler. Give it a time-out
+in seconds and a second handler function, and it will return a handler that
+will wait the desired amount of time before calling the second handler.
+
+- route(scheme, host, deproxy)
+This is actually a factory function that returns a handler. The handler
+forwards all requests to the specified host via HTTP or HTTPS, as indicated by
+the scheme parameter. The deproxy parameter is a deproxy.Deproxy object, which
+is used only as an HTTP/S client. The response returned from the handler is the
+response returned from the specified host.
 
 Custom Handlers
 ===============
 
-::
+You can define your own handlers and pass them as the handler_function
+parameter to make_request. Any callable that accepts a single Request parameter
+and returns a Response object will do.::
     >>> def custom_handler(request):
             return deproxy.Response(code=606, message='Spoiler', headers={},
                                     body='Snape Kills Dumbledore')
