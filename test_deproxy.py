@@ -8,7 +8,7 @@ import threading
 import logging
 import socket
 import argparse
-
+import time
 
 deproxy_port_base = 9999
 deproxy_port_iter = None
@@ -62,6 +62,28 @@ class TestEchoHandler(unittest.TestCase):
                              mc.received_response.headers))
         self.assertEquals(mc.received_response.headers['x-header'], '12345')
         self.assertEquals(mc.received_response.body, 'this is the body')
+
+
+class TestDelayHandler(unittest.TestCase):
+    def setUp(self):
+        self.deproxy_port = get_next_deproxy_port()
+        self.deproxy = deproxy.Deproxy()
+        self.end_point = self.deproxy.add_endpoint(('localhost',
+                                                    self.deproxy_port))
+
+    def tearDown(self):
+        self.deproxy.shutdown_all_endpoints()
+
+    def test_delay_handler(self):
+        handler = deproxy.delay(3, deproxy.default_handler)
+        t1 = time.time()
+        mc = self.deproxy.make_request('http://localhost:%i/' %
+                                       self.deproxy_port,
+                                       handler_function=handler)
+        t2 = time.time()
+        self.assertEquals(int(mc.received_response.code), 200)
+        self.assertGreaterEqual(t2 - t1, 3)
+        self.assertLessEqual(t2 - t1, 3.5)
 
 
 class TestRoute(unittest.TestCase):
