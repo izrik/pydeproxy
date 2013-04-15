@@ -12,18 +12,21 @@ import argparse
 
 deproxy_port_base = 9999
 
+
 class TestRoute(unittest.TestCase):
     def setUp(self):
         self.deproxy_port = deproxy_port_base - 0
         self.deproxy = deproxy.Deproxy()
-        self.end_point = self.deproxy.add_endpoint(('localhost', self.deproxy_port))
+        self.end_point = self.deproxy.add_endpoint(('localhost',
+                                                    self.deproxy_port))
         self.handler = deproxy.route('http', 'github.com', self.deproxy)
 
     def tearDown(self):
         pass
 
     def test_route(self):
-        mc = self.deproxy.make_request('http://localhost:%i/izrik/deproxy' % self.deproxy_port)
+        mc = self.deproxy.make_request('http://localhost:%i/izrik/deproxy' %
+                                       self.deproxy_port)
         self.assertEquals(int(mc.received_response.code), 200)
 
 
@@ -31,10 +34,12 @@ class TestDefaultHandler(unittest.TestCase):
     def setUp(self):
         self.deproxy_port = deproxy_port_base - 1
         self.deproxy = deproxy.Deproxy()
-        self.end_point = self.deproxy.add_endpoint(('localhost', self.deproxy_port))
+        self.end_point = self.deproxy.add_endpoint(('localhost',
+                                                    self.deproxy_port))
 
     def test_default_handler(self):
-        mc = self.deproxy.make_request('http://localhost:%i/' % self.deproxy_port)
+        mc = self.deproxy.make_request('http://localhost:%i/' %
+                                       self.deproxy_port)
         self.assertEquals(int(mc.received_response.code), 200)
 
 
@@ -42,14 +47,16 @@ class TestCustomHandler(unittest.TestCase):
     def setUp(self):
         self.deproxy_port = deproxy_port_base - 2
         self.deproxy = deproxy.Deproxy()
-        self.end_point = self.deproxy.add_endpoint(('localhost', self.deproxy_port))
+        self.end_point = self.deproxy.add_endpoint(('localhost',
+                                                    self.deproxy_port))
 
     def test_custom_handler(self):
         def custom_handler(request):
             return deproxy.Response(code=606, message="Spoiler",
                                     headers={"Header-Name": "Header-Value"},
                                     body='Snape Kills Dumbledore')
-        mc = self.deproxy.make_request('http://localhost:%i/' % self.deproxy_port,
+        mc = self.deproxy.make_request('http://localhost:%i/' %
+                                       self.deproxy_port,
                                        handler_function=custom_handler)
         self.assertEquals(int(mc.received_response.code), 606)
 
@@ -58,7 +65,8 @@ class TestOrphanedHandlings(unittest.TestCase):
     def setUp(self):
         self.deproxy_port = deproxy_port_base - 3
         self.deproxy = deproxy.Deproxy()
-        self.end_point = self.deproxy.add_endpoint(('localhost', self.deproxy_port))
+        self.end_point = self.deproxy.add_endpoint(('localhost',
+                                                    self.deproxy_port))
         self.other_client = deproxy.Deproxy()
 
     def test_orphaned_handling(self):
@@ -71,14 +79,16 @@ class TestOrphanedHandlings(unittest.TestCase):
         helper = Helper()
 
         def other_thread():
-            mc = self.deproxy.make_request('http://localhost:%i/' % self.deproxy_port,
+            mc = self.deproxy.make_request('http://localhost:%i/' %
+                                           self.deproxy_port,
                                            handler_function=delayed_handler)
             helper.mc = mc
 
         t = threading.Thread(target=other_thread)
         t.daemon = True
         t.start()
-        self.other_client.make_request('http://localhost:%i/' % self.deproxy_port)
+        self.other_client.make_request('http://localhost:%i/' %
+                                       self.deproxy_port)
         t.join()
         self.assertEqual(len(helper.mc.orphaned_handlings), 1)
 
