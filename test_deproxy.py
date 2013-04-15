@@ -114,7 +114,7 @@ class TestOrphanedHandlings(unittest.TestCase):
         self.deproxy.shutdown_all_endpoints()
 
     def test_orphaned_handling(self):
-        delayed_handler = deproxy.delay_and_then(2, deproxy.default_handler)
+        delayed_handler = deproxy.delay(2, deproxy.default_handler)
         self.long_running_mc = None
 
         class Helper:
