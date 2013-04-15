@@ -33,7 +33,7 @@ class TestRoute(unittest.TestCase):
         self.handler = deproxy.route('http', 'github.com', self.deproxy)
 
     def tearDown(self):
-        pass
+        self.deproxy.shutdown_all_endpoints()
 
     def test_route(self):
         mc = self.deproxy.make_request('http://localhost:%i/izrik/deproxy' %
@@ -48,6 +48,9 @@ class TestDefaultHandler(unittest.TestCase):
         self.end_point = self.deproxy.add_endpoint(('localhost',
                                                     self.deproxy_port))
 
+    def tearDown(self):
+        self.deproxy.shutdown_all_endpoints()
+
     def test_default_handler(self):
         mc = self.deproxy.make_request('http://localhost:%i/' %
                                        self.deproxy_port)
@@ -60,6 +63,9 @@ class TestCustomHandler(unittest.TestCase):
         self.deproxy = deproxy.Deproxy()
         self.end_point = self.deproxy.add_endpoint(('localhost',
                                                     self.deproxy_port))
+
+    def tearDown(self):
+        self.deproxy.shutdown_all_endpoints()
 
     def test_custom_handler(self):
         def custom_handler(request):
@@ -79,6 +85,9 @@ class TestOrphanedHandlings(unittest.TestCase):
         self.end_point = self.deproxy.add_endpoint(('localhost',
                                                     self.deproxy_port))
         self.other_client = deproxy.Deproxy()
+
+    def tearDown(self):
+        self.deproxy.shutdown_all_endpoints()
 
     def test_orphaned_handling(self):
         delayed_handler = deproxy.delay_and_then(2, deproxy.default_handler)
