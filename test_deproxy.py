@@ -7,6 +7,7 @@ import unittest
 import threading
 import logging
 import socket
+import argparse
 
 
 deproxy_port_base = 9999
@@ -123,10 +124,27 @@ class TestShutdownAllEndpoints(unittest.TestCase):
             self.fail('add_endpoint through an exception: %s' % e)
 
 
+def run():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--port-base', help='The base port number to use when '
+                        'assigning ports to tests. Each test case uses the '
+                        'next lower port number than the test case before. '
+                        'The default is 9999.', default=9999, type=int)
+    parser.add_argument('--print-log', action='store_true',
+                        help='Print the log.')
+    args = parser.parse_args()
+
+    if args.print_log:
+        logging.basicConfig(level=logging.DEBUG,
+                            format=('%(asctime)s %(levelname)s:%(name)s:'
+                                    '%(funcName)s:'
+                                    '%(filename)s(%(lineno)d):'
+                                    '%(threadName)s(%(thread)d):%(message)s'))
+
+    global deproxy_port_base
+    deproxy_port_base = args.port_base
+
+    unittest.main(argv=[''])
+
 if __name__ == '__main__':
-    #logging.basicConfig(level=logging.DEBUG,
-    #                    format=('%(asctime)s %(levelname)s:%(name)s:'
-    #                            '%(funcName)s:'
-    #                            '%(filename)s(%(lineno)d):'
-    #                            '%(threadName)s(%(thread)d):%(message)s'))
-    unittest.main()
+    run()
