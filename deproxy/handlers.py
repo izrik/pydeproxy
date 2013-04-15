@@ -27,7 +27,7 @@ def echo_handler(request):
     return Response(200, 'OK', request.headers, request.body)
 
 
-def delay_and_then(seconds, handler_function):
+def delay_and_then(timeout, handler_function):
     """
     Factory function.
     Returns a handler that delays the request for the specified number of
@@ -35,12 +35,12 @@ def delay_and_then(seconds, handler_function):
     handler function's Response.
     """
     def delay(request):
-        logger.debug('delaying for %i seconds' % seconds)
-        time.sleep(seconds)
+        logger.debug('delaying for %i seconds' % timeout)
+        time.sleep(timeout)
         return handler_function(request)
 
     delay.__doc__ = ('Delay for %s seconds, then forward the Request to the '
-                     'next handler' % str(seconds))
+                     'next handler' % str(timeout))
 
     return delay
 
