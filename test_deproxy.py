@@ -24,6 +24,22 @@ def get_next_deproxy_port():
     return deproxy_port_iter()
 
 
+class TestDefaultHandler(unittest.TestCase):
+    def setUp(self):
+        self.deproxy_port = get_next_deproxy_port()
+        self.deproxy = deproxy.Deproxy()
+        self.end_point = self.deproxy.add_endpoint(('localhost',
+                                                    self.deproxy_port))
+
+    def tearDown(self):
+        self.deproxy.shutdown_all_endpoints()
+
+    def test_default_handler(self):
+        mc = self.deproxy.make_request('http://localhost:%i/' %
+                                       self.deproxy_port)
+        self.assertEquals(int(mc.received_response.code), 200)
+
+
 class TestRoute(unittest.TestCase):
     def setUp(self):
         self.deproxy_port = get_next_deproxy_port()
@@ -37,22 +53,6 @@ class TestRoute(unittest.TestCase):
 
     def test_route(self):
         mc = self.deproxy.make_request('http://localhost:%i/izrik/deproxy' %
-                                       self.deproxy_port)
-        self.assertEquals(int(mc.received_response.code), 200)
-
-
-class TestDefaultHandler(unittest.TestCase):
-    def setUp(self):
-        self.deproxy_port = get_next_deproxy_port()
-        self.deproxy = deproxy.Deproxy()
-        self.end_point = self.deproxy.add_endpoint(('localhost',
-                                                    self.deproxy_port))
-
-    def tearDown(self):
-        self.deproxy.shutdown_all_endpoints()
-
-    def test_default_handler(self):
-        mc = self.deproxy.make_request('http://localhost:%i/' %
                                        self.deproxy_port)
         self.assertEquals(int(mc.received_response.code), 200)
 
