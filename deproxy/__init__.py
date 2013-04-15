@@ -13,7 +13,7 @@ import inspect
 import logging
 
 
-__version_info__ = (0, 1, 5)
+__version_info__ = (0, 2)
 __version__ = '.'.join(map(str, __version_info__))
 
 
@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 from .request import Request
 from .response import Response
-from .handlers import default_handler, echo_handler, delay_and_then, route
+from .handlers import default_handler, echo_handler, delay, route
 from .handling import Handling
 from .chain import MessageChain
 from .util import (try_get_value_case_insensitive,
