@@ -5,7 +5,7 @@ import deproxy
 setup(
     name='deproxy',
     version=deproxy.__version__,
-    packages=['deproxy',],
+    packages=['deproxy', ],
     license='MIT License',
     long_description=open('README.txt').read(),
     author='izrik',
