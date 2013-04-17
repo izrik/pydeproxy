@@ -1,3 +1,8 @@
+.. deproxy documentation master file, created by
+   sphinx-quickstart on Mon Apr 15 16:14:10 2013.
+   You can adapt this file completely to your liking, but it should at least
+   contain the root `toctree` directive.
+
 =======
 Deproxy
 =======
@@ -52,4 +57,21 @@ Any requests received by the server side are matched up with the requests that s
 A call to the Deproxy object's make_request method will return the request that the client side sent, the request that the server side received, the response that the server side sent, and the response that the client side received. In this way, we can conclusively prove whether or not the proxy modified requests and responses correctly. We can even conclusively show when no request makes it to the server in the first place, because the received_request and sent_response fields will be null.
 
 But this is just scratching the surface. The Deproxy module contains additional tools and utilities for custom server responses, mocking, testing multiple endpoints, and more.
+
+
+Contents:
+
+.. toctree::
+   :maxdepth: 2
+
+   use
+   handlers
+
+
+Indices and tables
+==================
+
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`
 
