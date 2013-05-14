@@ -54,7 +54,8 @@ class Deproxy:
         self._endpoints = []
 
     def make_request(self, url, method='GET', headers=None, request_body='',
-                     handler_function=default_handler):
+                     handler_function=default_handler,
+                     add_default_headers=True):
         """Make an HTTP request to the given url and return a MessageChain."""
         logger.debug('')
 
@@ -82,11 +83,13 @@ class Deproxy:
         urlparts[1] = ''
         path = urlparse.urlunsplit(urlparts)
 
-        try_add_value_case_insensitive(headers, 'Host', host)
-        try_add_value_case_insensitive(headers, 'Accept', '*/*')
-        try_add_value_case_insensitive(headers, 'Accept-Encoding',
-                                       'identity, deflate, compress, gzip')
-        try_add_value_case_insensitive(headers, 'User-Agent', version_string)
+        if add_default_headers:
+            try_add_value_case_insensitive(headers, 'Host', host)
+            try_add_value_case_insensitive(headers, 'Accept', '*/*')
+            try_add_value_case_insensitive(headers, 'Accept-Encoding',
+                                           'identity, deflate, compress, gzip')
+            try_add_value_case_insensitive(headers, 'User-Agent',
+                                           version_string)
 
         request = Request(method, path, headers, request_body)
 

@@ -200,6 +200,37 @@ class TestShutdownAllEndpoints(unittest.TestCase):
             self.fail('add_endpoint through an exception: %s' % e)
 
 
+class TestAutomaticRequestHeaders(unittest.TestCase):
+    def setUp(self):
+        self.port = get_next_deproxy_port()
+        self.deproxy = deproxy.Deproxy()
+        self.endpoint = self.deproxy.add_endpoint(('localhost', self.port))
+        self.url = 'http://localhost:{}/'.format(self.port)
+
+    def test_not_specified(self):
+        mc = self.deproxy.make_request(url=self.url)
+        self.assertIn('Host', mc.sent_request.headers)
+        #self.assertIn('host', mc.sent_request.headers)
+        self.assertIn('Accept', mc.sent_request.headers)
+        self.assertIn('Accept-Encoding', mc.sent_request.headers)
+        self.assertIn('User-Agent', mc.sent_request.headers)
+
+    def test_explicit_on(self):
+        mc = self.deproxy.make_request(url=self.url, add_default_headers=True)
+        self.assertIn('Host', mc.sent_request.headers)
+        #self.assertIn('host', mc.sent_request.headers)
+        self.assertIn('Accept', mc.sent_request.headers)
+        self.assertIn('Accept-Encoding', mc.sent_request.headers)
+        self.assertIn('User-Agent', mc.sent_request.headers)
+
+    def test_explicit_off(self):
+        mc = self.deproxy.make_request(url=self.url, add_default_headers=False)
+        self.assertNotIn('Host', mc.sent_request.headers)
+        #self.assertNotIn('host', mc.sent_request.headers)
+        self.assertNotIn('Accept', mc.sent_request.headers)
+        self.assertNotIn('Accept-Encoding', mc.sent_request.headers)
+        self.assertNotIn('User-Agent', mc.sent_request.headers)
+
 def run():
     parser = argparse.ArgumentParser()
     parser.add_argument('--port-base', help='The base port number to use when '
