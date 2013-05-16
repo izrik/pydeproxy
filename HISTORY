@@ -1,3 +1,0 @@
-added option to make_request to not add default request headers
-added option to handlers to not add default response headers. Just return tuple (Response(...), False)
-
