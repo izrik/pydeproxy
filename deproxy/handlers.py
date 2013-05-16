@@ -64,7 +64,7 @@ def route(scheme, host, deproxy):
         logger.debug('sending request')
         response = deproxy.send_request(scheme, host, request2)
         logger.debug('received response')
-        return response
+        return response, False
 
     route_to_host.__doc__ = "Route responses to %s using %s" % (host, scheme)
 
