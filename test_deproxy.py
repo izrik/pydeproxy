@@ -103,7 +103,7 @@ class TestRoute(unittest.TestCase):
         self.assertEquals(int(mc.received_response.code), 200)
 
 
-class TestCustomHandler(unittest.TestCase):
+class TestCustomHandlers(unittest.TestCase):
     def setUp(self):
         self.deproxy_port = get_next_deproxy_port()
         self.deproxy = deproxy.Deproxy()
@@ -113,7 +113,7 @@ class TestCustomHandler(unittest.TestCase):
     def tearDown(self):
         self.deproxy.shutdown_all_endpoints()
 
-    def test_custom_handler(self):
+    def test_custom_handler_function(self):
         def custom_handler(request):
             return deproxy.Response(code=606, message="Spoiler",
                                     headers={"Header-Name": "Header-Value"},
@@ -121,6 +121,17 @@ class TestCustomHandler(unittest.TestCase):
         mc = self.deproxy.make_request('http://localhost:%i/' %
                                        self.deproxy_port,
                                        handler_function=custom_handler)
+        self.assertEquals(int(mc.received_response.code), 606)
+
+    def handler_method(self, request):
+        return deproxy.Response(code=606, message="Spoiler",
+                                headers={"Header-Name": "Header-Value"},
+                                body='Snape Kills Dumbledore')
+
+    def test_custom_handler_method(self):
+        mc = self.deproxy.make_request('http://localhost:%i/' %
+                                       self.deproxy_port,
+                                       handler_function=self.handler_method)
         self.assertEquals(int(mc.received_response.code), 606)
 
 
@@ -198,6 +209,89 @@ class TestShutdownAllEndpoints(unittest.TestCase):
             e4 = self.deproxy.add_endpoint(('localhost', self.deproxy_port2))
         except socket.error as e:
             self.fail('add_endpoint through an exception: %s' % e)
+
+
+class TestAutomaticRequestHeaders(unittest.TestCase):
+    def setUp(self):
+        self.port = get_next_deproxy_port()
+        self.deproxy = deproxy.Deproxy()
+        self.endpoint = self.deproxy.add_endpoint(('localhost', self.port))
+        self.url = 'http://localhost:{}/'.format(self.port)
+
+    def tearDown(self):
+        if self.deproxy is not None:
+            self.deproxy.shutdown_all_endpoints()
+
+    def test_not_specified(self):
+        mc = self.deproxy.make_request(url=self.url)
+        self.assertIn('Host', mc.sent_request.headers)
+        #self.assertIn('host', mc.sent_request.headers)
+        self.assertIn('Accept', mc.sent_request.headers)
+        self.assertIn('Accept-Encoding', mc.sent_request.headers)
+        self.assertIn('User-Agent', mc.sent_request.headers)
+
+    def test_explicit_on(self):
+        mc = self.deproxy.make_request(url=self.url, add_default_headers=True)
+        self.assertIn('Host', mc.sent_request.headers)
+        #self.assertIn('host', mc.sent_request.headers)
+        self.assertIn('Accept', mc.sent_request.headers)
+        self.assertIn('Accept-Encoding', mc.sent_request.headers)
+        self.assertIn('User-Agent', mc.sent_request.headers)
+
+    def test_explicit_off(self):
+        mc = self.deproxy.make_request(url=self.url, add_default_headers=False)
+        self.assertNotIn('Host', mc.sent_request.headers)
+        #self.assertNotIn('host', mc.sent_request.headers)
+        self.assertNotIn('Accept', mc.sent_request.headers)
+        self.assertNotIn('Accept-Encoding', mc.sent_request.headers)
+        self.assertNotIn('User-Agent', mc.sent_request.headers)
+
+
+class TestDefaultResponseHeaders(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        self.port = get_next_deproxy_port()
+        self.deproxy = deproxy.Deproxy()
+        self.endpoint = self.deproxy.add_endpoint(('localhost', self.port))
+        self.url = 'http://localhost:{}/'.format(self.port)
+
+    @classmethod
+    def tearDownClass(self):
+        if self.deproxy is not None:
+            self.deproxy.shutdown_all_endpoints()
+
+    def handler1(self, request):
+        return deproxy.Response(code=606, message="Spoiler",
+                                headers={"Header-Name": "Header-Value"},
+                                body='Snape Kills Dumbledore')
+
+    def handler2(self, request):
+        return (deproxy.Response(code=606, message="Spoiler",
+                                 headers={"Header-Name": "Header-Value"},
+                                 body='Snape Kills Dumbledore'), True)
+
+    def handler3(self, request):
+        return (deproxy.Response(code=606, message="Spoiler",
+                                 headers={"Header-Name": "Header-Value"},
+                                 body='Snape Kills Dumbledore'), False)
+
+    def test_not_specified(self):
+        mc = self.deproxy.make_request(url=self.url,
+                                       handler_function=self.handler1)
+        self.assertIn('Server', mc.received_response.headers)
+        self.assertIn('Date', mc.received_response.headers)
+
+    def test_explicit_on(self):
+        mc = self.deproxy.make_request(url=self.url,
+                                       handler_function=self.handler2)
+        self.assertIn('Server', mc.received_response.headers)
+        self.assertIn('Date', mc.received_response.headers)
+
+    def test_explicit_off(self):
+        mc = self.deproxy.make_request(url=self.url,
+                                       handler_function=self.handler3)
+        self.assertNotIn('Server', mc.received_response.headers)
+        self.assertNotIn('Date', mc.received_response.headers)
 
 
 def run():

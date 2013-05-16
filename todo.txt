@@ -1,3 +1,0 @@
-super-easy assertions on message chains, handlings, requests, and responses - for use by importers
-extract classes for handling http version 0.9, 1.0, and 1.1
-add endpoint parameter to handler functions
