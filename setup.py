@@ -6,7 +6,7 @@ setup(
     name='deproxy',
     version=deproxy.__version__,
     packages=['deproxy', ],
-    license='MIT License',
+    license=open('LICENSE').read(),
     long_description=open('README.rst').read() + '\n\n' +
                      open('HISTORY.rst').read(),
     author='izrik',
