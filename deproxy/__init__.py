@@ -221,7 +221,7 @@ class Deproxy:
 
     def add_orphaned_handling(self, handling):
         """Add the handling to all available MessageChains."""
-        logger.debug('Adding orphaned hanlding')
+        logger.debug('Adding orphaned handling')
         with self._message_chains_lock:
             for mc in self._message_chains.itervalues():
                 mc.add_orphaned_handling(handling)
