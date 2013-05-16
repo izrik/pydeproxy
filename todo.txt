@@ -1,3 +1,18 @@
 super-easy assertions on message chains, handlings, requests, and responses - for use by importers
 extract classes for handling http version 0.9, 1.0, and 1.1
-add endpoint parameter to handler functions
+add endpoint parameter to handler functions, so we know who handled the request
+
+fix body reading
+binary body
+compression
+
+fix add_endpoint signature
+specify separate handlers for each endpoint in make_request
+clean endpoint failure, e.g. if address already in use
+    shouldn't get added to _endpoints list
+    thread(s) should be shut down
+option on route to be transparent or not (see http rfc)
+specify default handler for a specific endpoint
+clean up headers
+    case-insensitive
+    multiple headers with the same name should combine, not overwrite
