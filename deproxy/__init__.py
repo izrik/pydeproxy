@@ -436,6 +436,21 @@ class DeproxyEndpoint:
                     add_default_headers = resp[1]
                 resp = resp[0]
 
+
+            if add_default_headers:
+                lowers = {}
+
+                for name, value in resp.headers.items():
+                    name_lower = name.lower()
+                    lowers[name_lower] = value
+
+                if 'server' not in lowers:
+                    resp.headers['Server'] = version_string
+                if 'date' not in lowers:
+                    resp.headers['Date'] = self.date_time_string()
+            else:
+                logger.debug('Don\'t add default response headers.')
+
             found = try_get_value_case_insensitive(resp.headers,
                                                    request_id_header_name)
             if not found and request_id is not None:
@@ -449,8 +464,7 @@ class DeproxyEndpoint:
             else:
                 self.deproxy.add_orphaned_handling(h)
 
-            self.send_response(wfile, resp,
-                               add_default_headers=add_default_headers)
+            self.send_response(wfile, resp)
 
             wfile.flush()
 
@@ -583,7 +597,7 @@ class DeproxyEndpoint:
 
         self.send_response(response)
 
-    def send_response(self, wfile, response, add_default_headers=True):
+    def send_response(self, wfile, response):
         """
         Send the given Response over the socket. Add Server and Date headers
         if not already present.
@@ -599,19 +613,6 @@ class DeproxyEndpoint:
                     (response.code, message))
 
         headers = dict(response.headers)
-        if add_default_headers:
-            lowers = {}
-
-            for name, value in response.headers.items():
-                name_lower = name.lower()
-                lowers[name_lower] = value
-
-            if 'server' not in lowers:
-                headers['Server'] = version_string
-            if 'date' not in lowers:
-                headers['Date'] = self.date_time_string()
-        else:
-            logger.debug('Don\'t add default response headers.')
 
         for name, value in headers.iteritems():
             wfile.write("%s: %s\r\n" % (name, value))
