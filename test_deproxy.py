@@ -278,20 +278,30 @@ class TestDefaultResponseHeaders(unittest.TestCase):
     def test_not_specified(self):
         mc = self.deproxy.make_request(url=self.url,
                                        handler_function=self.handler1)
-        self.assertIn('Server', mc.received_response.headers)
-        self.assertIn('Date', mc.received_response.headers)
+        self.assertIn('server', mc.received_response.headers)
+        self.assertIn('date', mc.received_response.headers)
+        self.assertIn('Server', mc.handlings[0].response.headers)
+        self.assertIn('Date', mc.handlings[0].response.headers)
 
     def test_explicit_on(self):
         mc = self.deproxy.make_request(url=self.url,
                                        handler_function=self.handler2)
-        self.assertIn('Server', mc.received_response.headers)
-        self.assertIn('Date', mc.received_response.headers)
+        self.assertIn('server', mc.received_response.headers)
+        self.assertIn('date', mc.received_response.headers)
+        self.assertIn('Server', mc.handlings[0].response.headers)
+        self.assertIn('Date', mc.handlings[0].response.headers)
 
     def test_explicit_off(self):
         mc = self.deproxy.make_request(url=self.url,
                                        handler_function=self.handler3)
+        self.assertNotIn('server', mc.received_response.headers)
+        self.assertNotIn('date', mc.received_response.headers)
+        self.assertNotIn('server', mc.handlings[0].response.headers)
+        self.assertNotIn('date', mc.handlings[0].response.headers)
         self.assertNotIn('Server', mc.received_response.headers)
         self.assertNotIn('Date', mc.received_response.headers)
+        self.assertNotIn('Server', mc.handlings[0].response.headers)
+        self.assertNotIn('Date', mc.handlings[0].response.headers)
 
 
 def run():
