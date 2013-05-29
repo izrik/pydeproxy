@@ -137,6 +137,7 @@ class Deproxy:
         response_line = rfile.readline(65537)
         if (len(response_line) > 65536):
             raise ValueError
+        response_line = response_line.rstrip('\r\n')
         logger.debug('Response line is ok: %s' % response_line)
 
         words = response_line.split()
