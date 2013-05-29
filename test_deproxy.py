@@ -57,9 +57,7 @@ class TestEchoHandler(unittest.TestCase):
                                        request_body='this is the body',
                                        handler_function=deproxy.echo_handler)
         self.assertEquals(int(mc.received_response.code), 200)
-        self.assertTrue('x-header' in mc.received_response.headers,
-                        msg=('\'x-header\' not in %s' %
-                             mc.received_response.headers))
+        self.assertIn('x-header', mc.received_response.headers)
         self.assertEquals(mc.received_response.headers['x-header'], '12345')
         self.assertEquals(mc.received_response.body, 'this is the body')
 
@@ -278,6 +276,7 @@ class TestDefaultResponseHeaders(unittest.TestCase):
     def test_not_specified(self):
         mc = self.deproxy.make_request(url=self.url,
                                        handler_function=self.handler1)
+        self.assertEqual(len(mc.handlings), 1)
         self.assertIn('server', mc.received_response.headers)
         self.assertIn('date', mc.received_response.headers)
         self.assertIn('Server', mc.handlings[0].response.headers)
@@ -286,6 +285,7 @@ class TestDefaultResponseHeaders(unittest.TestCase):
     def test_explicit_on(self):
         mc = self.deproxy.make_request(url=self.url,
                                        handler_function=self.handler2)
+        self.assertEqual(len(mc.handlings), 1)
         self.assertIn('server', mc.received_response.headers)
         self.assertIn('date', mc.received_response.headers)
         self.assertIn('Server', mc.handlings[0].response.headers)
@@ -294,6 +294,7 @@ class TestDefaultResponseHeaders(unittest.TestCase):
     def test_explicit_off(self):
         mc = self.deproxy.make_request(url=self.url,
                                        handler_function=self.handler3)
+        self.assertEqual(len(mc.handlings), 1)
         self.assertNotIn('server', mc.received_response.headers)
         self.assertNotIn('date', mc.received_response.headers)
         self.assertNotIn('server', mc.handlings[0].response.headers)
