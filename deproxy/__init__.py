@@ -35,6 +35,7 @@ from .response import Response
 from .handlers import default_handler, echo_handler, delay, route
 from .handling import Handling
 from .chain import MessageChain
+from .header_collection import HeaderCollection
 from .util import (try_get_value_case_insensitive,
                    try_add_value_case_insensitive,
                    try_del_key_case_insensitive, text_from_file,
