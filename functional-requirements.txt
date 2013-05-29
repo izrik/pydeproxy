@@ -1,10 +1,15 @@
 
-# List of functional requirements which deproxy shall satisfy. This list will 
-# be expanded upon and refined in the future.
+# Philosophy
+# Deproxy does not itself conform to the HTTP RFC's in all cases. It is instead
+# used to test other application for conformance. Therefore, Deproxy be aware
+# of all HTTP specifications and must provide facilities for testing against
+# them, even in cases where Deproxy will not conform to the specs. For example,
+# to test how a proxy responds to a client or server that sets invalid values
+# for headers, Deproxy must generate those invalid values.
 
-R-1: Satisfy all requirements of the HTTP/1.1 standard; see http://tools.ietf.org/html/rfc2616
-R-2: Satisfy all requirements of the HTTP/1.0 standard; see http://tools.ietf.org/html/rfc1945
-R-3: Implement all requirements of the HTTP/0.9 protocol; see http://www.w3.org/Protocols/HTTP/AsImplemented.html
+# HTTP/1.1 standard: http://tools.ietf.org/html/rfc2616
+# HTTP/1.0 standard: http://tools.ietf.org/html/rfc1945
+# HTTP/0.9 protocol: http://www.w3.org/Protocols/HTTP/AsImplemented.html
 
 # Additional information:
 # http://www.w3.org/Protocols/History.html
@@ -12,4 +17,6 @@ R-3: Implement all requirements of the HTTP/0.9 protocol; see http://www.w3.org/
 # http://www.w3.org/Protocols/Classic.html
 # http://www.w3.org/Protocols/
 # http://en.wikipedia.org/wiki/Hypertext_Transfer_Protocol
+
+proxies must not forward connection header
 

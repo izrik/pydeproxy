@@ -57,9 +57,7 @@ class TestEchoHandler(unittest.TestCase):
                                        request_body='this is the body',
                                        handler_function=deproxy.echo_handler)
         self.assertEquals(int(mc.received_response.code), 200)
-        self.assertTrue('x-header' in mc.received_response.headers,
-                        msg=('\'x-header\' not in %s' %
-                             mc.received_response.headers))
+        self.assertIn('x-header', mc.received_response.headers)
         self.assertEquals(mc.received_response.headers['x-header'], '12345')
         self.assertEquals(mc.received_response.body, 'this is the body')
 
@@ -278,6 +276,7 @@ class TestDefaultResponseHeaders(unittest.TestCase):
     def test_not_specified(self):
         mc = self.deproxy.make_request(url=self.url,
                                        handler_function=self.handler1)
+        self.assertEqual(len(mc.handlings), 1)
         self.assertIn('server', mc.received_response.headers)
         self.assertIn('date', mc.received_response.headers)
         self.assertIn('Server', mc.handlings[0].response.headers)
@@ -286,6 +285,7 @@ class TestDefaultResponseHeaders(unittest.TestCase):
     def test_explicit_on(self):
         mc = self.deproxy.make_request(url=self.url,
                                        handler_function=self.handler2)
+        self.assertEqual(len(mc.handlings), 1)
         self.assertIn('server', mc.received_response.headers)
         self.assertIn('date', mc.received_response.headers)
         self.assertIn('Server', mc.handlings[0].response.headers)
@@ -294,6 +294,7 @@ class TestDefaultResponseHeaders(unittest.TestCase):
     def test_explicit_off(self):
         mc = self.deproxy.make_request(url=self.url,
                                        handler_function=self.handler3)
+        self.assertEqual(len(mc.handlings), 1)
         self.assertNotIn('server', mc.received_response.headers)
         self.assertNotIn('date', mc.received_response.headers)
         self.assertNotIn('server', mc.handlings[0].response.headers)
@@ -303,6 +304,55 @@ class TestDefaultResponseHeaders(unittest.TestCase):
         self.assertNotIn('Server', mc.handlings[0].response.headers)
         self.assertNotIn('Date', mc.handlings[0].response.headers)
 
+
+class TestHeaderCollection(unittest.TestCase):
+    def setUp(self):
+        self.headers = deproxy.HeaderCollection()
+
+    def test_length(self):
+        self.assertEqual(len(self.headers), 0)
+        self.headers.add('Name', 'Value')
+        self.assertEqual(len(self.headers), 1)
+
+    def test_contains(self):
+        self.headers.add('Name', 'Value')
+        self.assertTrue('Name' in self.headers)
+
+    def test_contains_case(self):
+        self.headers.add('Name', 'Value')
+        self.assertTrue('name' in self.headers)
+
+    def test_assertIn_case(self):
+        self.headers.add('Name', 'Value')
+        self.assertIn('name', self.headers)
+
+    def test_find_all(self):
+        self.headers.add('A', 'qwerty')
+        self.headers.add('B', 'asdf')
+        self.headers.add('C', 'zxcv')
+        self.headers.add('A', 'uiop')
+        self.headers.add('A', 'jkl;')
+
+        result = [value for value in self.headers.find_all('A')]
+        self.assertEqual(result, ['qwerty', 'uiop', 'jkl;'])
+
+    def test_bracket_case(self):
+        self.headers.add('Name', 'Value')
+
+        try:
+            self.assertEqual(self.headers['name'], 'Value')
+        except:
+            self.fail()
+
+    def test_get(self):
+        self.headers.add('Name', 'Value')
+        self.assertIn('name', self.headers)
+
+        self.assertEqual(self.headers.get('Name'), 'Value')
+        self.assertEqual(self.headers.get('name'), 'Value')
+        self.assertIsNone(self.headers.get('asdf'))
+        self.assertEqual(self.headers.get('name', default='zxcv'), 'Value')
+        self.assertEqual(self.headers.get('asdf', default='zxcv'), 'zxcv')
 
 def run():
     parser = argparse.ArgumentParser()

@@ -35,10 +35,8 @@ from .response import Response
 from .handlers import default_handler, echo_handler, delay, route
 from .handling import Handling
 from .chain import MessageChain
-from .util import (try_get_value_case_insensitive,
-                   try_add_value_case_insensitive,
-                   try_del_key_case_insensitive, text_from_file,
-                   lines_from_file)
+from .header_collection import HeaderCollection
+from .util import (text_from_file, lines_from_file)
 
 
 request_id_header_name = 'Deproxy-Request-ID'
@@ -60,18 +58,13 @@ class Deproxy:
         logger.debug('')
 
         if headers is None:
-            headers = {}
+            headers = HeaderCollection()
         else:
-            # if the caller passes in a headers object to specify what http
-            # headers to send, we need to copy it in order to avoid modifying
-            # it. Also, if the caller passes in the same object multiple times,
-            # subsequent calls to try_add_value_case_insensitive wouldn't
-            # change the values in the dictionary.
-            headers = dict(headers)
+            headers = HeaderCollection(headers)
 
         request_id = str(uuid.uuid4())
-        try_add_value_case_insensitive(headers, request_id_header_name,
-                                       request_id)
+        if request_id_header_name not in headers:
+            headers.add(request_id_header_name, request_id)
 
         message_chain = MessageChain(handler_function)
         self.add_message_chain(request_id, message_chain)
@@ -84,12 +77,15 @@ class Deproxy:
         path = urlparse.urlunsplit(urlparts)
 
         if add_default_headers:
-            try_add_value_case_insensitive(headers, 'Host', host)
-            try_add_value_case_insensitive(headers, 'Accept', '*/*')
-            try_add_value_case_insensitive(headers, 'Accept-Encoding',
-                                           'identity, deflate, compress, gzip')
-            try_add_value_case_insensitive(headers, 'User-Agent',
-                                           version_string)
+            if 'Host' not in headers:
+                headers.add('Host', host)
+            if 'Accept' not in headers:
+                headers.add('Accept', '*/*')
+            if 'Accept-Encoding' not in headers:
+                headers.add('Accept-Encoding',
+                            'identity, deflate, compress, gzip')
+            if 'User-Agent' not in headers:
+                headers.add('User-Agent', version_string)
 
         request = Request(method, path, headers, request_body)
 
@@ -141,6 +137,7 @@ class Deproxy:
         response_line = rfile.readline(65537)
         if (len(response_line) > 65536):
             raise ValueError
+        response_line = response_line.rstrip('\r\n')
         logger.debug('Response line is ok: %s' % response_line)
 
         words = response_line.split()
@@ -403,8 +400,7 @@ class DeproxyEndpoint:
 
             if persistent_connection:
                 close_connection = False
-                conn_value = try_get_value_case_insensitive(
-                    incoming_request.headers, 'connection')
+                conn_value = incoming_request.headers.get('connection')
                 if conn_value:
                     if conn_value.lower() == 'close':
                         close_connection = True
@@ -414,14 +410,13 @@ class DeproxyEndpoint:
 
             handler_function = default_handler
             message_chain = None
-            request_id = None
-            request_id = try_get_value_case_insensitive(
-                incoming_request.headers,
-                request_id_header_name)
+            request_id = incoming_request.headers.get(request_id_header_name)
             if request_id:
                 logger.debug('The request has a request id: %s=%s' %
                              (request_id_header_name, request_id))
                 message_chain = self.deproxy.get_message_chain(request_id)
+            else:
+                logger.debug('The request does not have a request id')
             if message_chain:
                 handler_function = message_chain.handler_function
 
@@ -451,8 +446,7 @@ class DeproxyEndpoint:
             else:
                 logger.debug('Don\'t add default response headers.')
 
-            found = try_get_value_case_insensitive(resp.headers,
-                                                   request_id_header_name)
+            found = resp.headers.get(request_id_header_name)
             if not found and request_id is not None:
                 resp.headers[request_id_header_name] = request_id
 
@@ -469,8 +463,7 @@ class DeproxyEndpoint:
             wfile.flush()
 
             if persistent_connection and not close_connection:
-                conn_value = try_get_value_case_insensitive(
-                    incoming_request.headers, 'connection')
+                conn_value = incoming_request.headers.get('connection')
                 if conn_value:
                     if conn_value.lower() == 'close':
                         close_connection = True
@@ -482,20 +475,21 @@ class DeproxyEndpoint:
 
     def parse_request(self, rfile, wfile):
         logger.debug('reading request line')
-        requestline = rfile.readline(65537)
-        if len(requestline) > 65536:
+        request_line = rfile.readline(65537)
+        if len(request_line) > 65536:
             self.send_error(wfile, 414, None, self.default_request_version)
             return ()
-        if not requestline:
+        if not request_line:
             return ()
 
-        logger.debug('request line is ok: "%s"' % requestline)
+        request_line = request_line.rstrip('\r\n')
+        logger.debug('request line is ok: "%s"' % request_line)
 
-        if requestline[-2:] == '\r\n':
-            requestline = requestline[:-2]
-        elif requestline[-1:] == '\n':
-            requestline = requestline[:-1]
-        words = requestline.split()
+        if request_line[-2:] == '\r\n':
+            request_line = request_line[:-2]
+        elif request_line[-1:] == '\n':
+            request_line = request_line[:-1]
+        words = request_line.split()
         if len(words) == 3:
             [method, path, version] = words
             if version[:5] != 'HTTP/':
@@ -533,7 +527,7 @@ class DeproxyEndpoint:
         else:
             self.send_error(wfile, 400, None,
                             self.default_request_version,
-                            "Bad request syntax (%r)" % requestline)
+                            "Bad request syntax (%r)" % request_line)
             return ()
 
         logger.debug('checking HTTP protocol version')
@@ -545,15 +539,23 @@ class DeproxyEndpoint:
             return ()
 
         logger.debug('parsing headers')
-        headers = dict(mimetools.Message(rfile, 0))
-        #for key,value in headers.iteritems():
-        #    logger.debug('  %s: %s' % (key, value))
+        headers = HeaderCollection()
+        line = rfile.readline()
+        while line and line != '\x0d\x0a':
+            name, value = line.split(':', 1)
+            name = name.strip()
+            line = rfile.readline()
+            while line.startswith(' ') or line.startswith('\t'):
+                # Continuation lines - see RFC 2616, section 4.2
+                value += ' ' + line
+                line = rfile.readline()
+            headers.add(name, value.strip())
 
         persistent_connection = False
-        if version == 'HTTP/1.1':
-            value = try_get_value_case_insensitive(headers, 'Connection')
-            if value != 'close':
-                persistent_connection = True
+        if (version == 'HTTP/1.1' and
+                'Connection' in headers and
+                headers['Connection'] != 'close'):
+            persistent_connection = True
 
         logger.debug('returning')
         return (Request(method, path, headers, rfile), persistent_connection)

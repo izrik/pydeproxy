@@ -4,7 +4,6 @@ import time
 
 from .response import Response
 from .request import Request
-from .util import try_del_key_case_insensitive
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +59,8 @@ def route(scheme, host, deproxy):
         logger.debug('scheme, host = %s, %s' % (scheme, host))
         request2 = Request(request.method, request.path, 'HTTP/1.0',
                            request.headers, request.body)
-        try_del_key_case_insensitive(request2.headers, 'Host')
+        if 'Host' in request2.headers:
+            request2.headers.delete_all('Host')
         logger.debug('sending request')
         response = deproxy.send_request(scheme, host, request2)
         logger.debug('received response')

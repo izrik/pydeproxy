@@ -1,4 +1,5 @@
 
+from .header_collection import HeaderCollection
 
 class Response:
     """A simple HTTP Response, with status code, status message, headers, and
@@ -6,7 +7,7 @@ class Response:
     def __init__(self, code, message, headers, body):
         self.code = code
         self.message = message
-        self.headers = dict(headers)
+        self.headers = HeaderCollection(headers)
         self.body = body
 
     def __repr__(self):

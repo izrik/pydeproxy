@@ -13,6 +13,4 @@ clean endpoint failure, e.g. if address already in use
     thread(s) should be shut down
 option on route to be transparent or not (see http rfc)
 specify default handler for a specific endpoint
-clean up headers
-    case-insensitive
-    multiple headers with the same name should combine, not overwrite
+
