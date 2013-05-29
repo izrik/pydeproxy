@@ -92,7 +92,9 @@ class HeaderCollection(object):
         raise NotImplementedError
 
     def get(self, key, default=None):
-        raise NotImplementedError
+        if key in self:
+            return self[key]
+        return default
 
     def has_key(self, key):
         raise NotImplementedError
