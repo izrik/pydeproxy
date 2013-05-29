@@ -336,6 +336,23 @@ class TestHeaderCollection(unittest.TestCase):
         result = [value for value in self.headers.find_all('A')]
         self.assertEqual(result, ['qwerty', 'uiop', 'jkl;'])
 
+    def test_bracket_case(self):
+        self.headers.add('Name', 'Value')
+
+        try:
+            self.assertEqual(self.headers['name'], 'Value')
+        except:
+            self.fail()
+
+    def test_get(self):
+        self.headers.add('Name', 'Value')
+        self.assertIn('name', self.headers)
+
+        self.assertEqual(self.headers.get('Name'), 'Value')
+        self.assertEqual(self.headers.get('name'), 'Value')
+        self.assertIsNone(self.headers.get('asdf'))
+        self.assertEqual(self.headers.get('name', default='zxcv'), 'Value')
+        self.assertEqual(self.headers.get('asdf', default='zxcv'), 'zxcv')
 
 def run():
     parser = argparse.ArgumentParser()
