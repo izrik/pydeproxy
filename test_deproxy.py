@@ -304,6 +304,38 @@ class TestDefaultResponseHeaders(unittest.TestCase):
         self.assertNotIn('Date', mc.handlings[0].response.headers)
 
 
+class TestHeaderCollection(unittest.TestCase):
+    def setUp(self):
+        self.headers = deproxy.HeaderCollection()
+
+    def test_length(self):
+        self.assertEqual(len(self.headers), 0)
+        self.headers.add('Name', 'Value')
+        self.assertEqual(len(self.headers), 1)
+
+    def test_contains(self):
+        self.headers.add('Name', 'Value')
+        self.assertTrue('Name' in self.headers)
+
+    def test_contains_case(self):
+        self.headers.add('Name', 'Value')
+        self.assertTrue('name' in self.headers)
+
+    def test_assertIn_case(self):
+        self.headers.add('Name', 'Value')
+        self.assertIn('name', self.headers)
+
+    def test_find_all(self):
+        self.headers.add('A', 'qwerty')
+        self.headers.add('B', 'asdf')
+        self.headers.add('C', 'zxcv')
+        self.headers.add('A', 'uiop')
+        self.headers.add('A', 'jkl;')
+
+        result = [value for value in self.headers.find_all('A')]
+        self.assertEqual(result, ['qwerty', 'uiop', 'jkl;'])
+
+
 def run():
     parser = argparse.ArgumentParser()
     parser.add_argument('--port-base', help='The base port number to use when '
