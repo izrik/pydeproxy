@@ -474,20 +474,21 @@ class DeproxyEndpoint:
 
     def parse_request(self, rfile, wfile):
         logger.debug('reading request line')
-        requestline = rfile.readline(65537)
-        if len(requestline) > 65536:
+        request_line = rfile.readline(65537)
+        if len(request_line) > 65536:
             self.send_error(wfile, 414, None, self.default_request_version)
             return ()
-        if not requestline:
+        if not request_line:
             return ()
 
-        logger.debug('request line is ok: "%s"' % requestline)
+        request_line = request_line.rstrip('\r\n')
+        logger.debug('request line is ok: "%s"' % request_line)
 
-        if requestline[-2:] == '\r\n':
-            requestline = requestline[:-2]
-        elif requestline[-1:] == '\n':
-            requestline = requestline[:-1]
-        words = requestline.split()
+        if request_line[-2:] == '\r\n':
+            request_line = request_line[:-2]
+        elif request_line[-1:] == '\n':
+            request_line = request_line[:-1]
+        words = request_line.split()
         if len(words) == 3:
             [method, path, version] = words
             if version[:5] != 'HTTP/':
@@ -525,7 +526,7 @@ class DeproxyEndpoint:
         else:
             self.send_error(wfile, 400, None,
                             self.default_request_version,
-                            "Bad request syntax (%r)" % requestline)
+                            "Bad request syntax (%r)" % request_line)
             return ()
 
         logger.debug('checking HTTP protocol version')
