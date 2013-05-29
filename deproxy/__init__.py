@@ -538,9 +538,17 @@ class DeproxyEndpoint:
             return ()
 
         logger.debug('parsing headers')
-        headers = HeaderCollection(dict(mimetools.Message(rfile, 0)))
-        #for key,value in headers.iteritems():
-        #    logger.debug('  %s: %s' % (key, value))
+        headers = HeaderCollection()
+        line = rfile.readline()
+        while line and line != '\x0d\x0a':
+            name, value = line.split(':', 1)
+            name = name.strip()
+            line = rfile.readline()
+            while line.startswith(' ') or line.startswith('\t'):
+                # Continuation lines - see RFC 2616, section 4.2
+                value += ' ' + line
+                line = rfile.readline()
+            headers.add(name, value.strip())
 
         persistent_connection = False
         if (version == 'HTTP/1.1' and
