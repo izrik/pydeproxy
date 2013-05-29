@@ -6,8 +6,14 @@ class HeaderCollection(object):
     times with different values, and all of those values will be kept.
     """
 
-    def __init__(self):
+    def __init__(self, mapping=None, **kwargs):
         self.headers = []
+        if mapping is not None:
+            for k, v in mapping.iteritems():
+                self.add(k, v)
+        if kwargs is not None:
+            for k, v in kwargs.iteritems():
+                self.add(k, v)
 
     def __contains__(self, item):
         item = item.lower()
