@@ -7,8 +7,8 @@ setup(
     version=deproxy.__version__,
     packages=['deproxy', ],
     license=open('LICENSE').read(),
-    long_description=open('README.rst').read() + '\n\n' +
-                     open('HISTORY.rst').read(),
+    long_description=(open('README.rst').read() + '\n\n' +
+                      open('HISTORY.rst').read()),
     author='izrik',
     author_email='izrik@yahoo.com',
     url='https://github.com/izrik/deproxy',
