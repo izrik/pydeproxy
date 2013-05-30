@@ -76,6 +76,10 @@ class Deproxy:
         urlparts[1] = ''
         path = urlparse.urlunsplit(urlparts)
 
+        logger.debug('request_body: "{0}"'.format(request_body))
+        if len(request_body) > 0:
+            headers.add('Content-Length', len(request_body))
+
         if add_default_headers:
             if 'Host' not in headers:
                 headers.add('Host', host)
