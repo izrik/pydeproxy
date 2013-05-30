@@ -442,15 +442,9 @@ class DeproxyEndpoint:
 
 
             if add_default_headers:
-                lowers = {}
-
-                for name, value in resp.headers.items():
-                    name_lower = name.lower()
-                    lowers[name_lower] = value
-
-                if 'server' not in lowers:
+                if 'Server' not in resp.headers:
                     resp.headers['Server'] = version_string
-                if 'date' not in lowers:
+                if 'Date' not in resp.headers:
                     resp.headers['Date'] = self.date_time_string()
             else:
                 logger.debug('Don\'t add default response headers.')
