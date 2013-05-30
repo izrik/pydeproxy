@@ -54,6 +54,19 @@ class Response:
                 (self.code, self.message, self.headers, self.body))
 
 
+class Request:
+    """A simple HTTP Request, with method, path, headers, and body."""
+    def __init__(self, method, path, headers, body):
+        self.method = method
+        self.path = path
+        self.headers = HeaderCollection(headers)
+        self.body = body
+
+    def __repr__(self):
+        return ('Request(method=%r, path=%r, headers=%r, body=%r)' %
+                (self.method, self.path, self.headers, self.body))
+
+
 def default_handler(request):
     """
     Handler function.
@@ -115,6 +128,35 @@ def route(scheme, host, deproxy):
     route_to_host.__doc__ = "Route responses to %s using %s" % (host, scheme)
 
     return route_to_host
+
+
+class MessageChain:
+    """
+    An object containing the initial request sent via the make_request method,
+    and all request/response pairs (Handling objects) processed by
+    DeproxyEndpoint objects.
+    """
+    def __init__(self, handler_function):
+        self.sent_request = None
+        self.received_response = None
+        self.handler_function = handler_function
+        self.handlings = []
+        self.orphaned_handlings = []
+        self.lock = threading.Lock()
+
+    def add_handling(self, handling):
+        with self.lock:
+            self.handlings.append(handling)
+
+    def add_orphaned_handling(self, handling):
+        with self.lock:
+            self.orphaned_handlings.append(handling)
+
+    def __repr__(self):
+        return ('MessageChain(handler_function=%r, sent_request=%r, '
+                'handlings=%r, received_response=%r, orphaned_handlings=%r)' %
+                (self.handler_function, self.sent_request, self.handlings,
+                 self.received_response, self.orphaned_handlings))
 
 
 class Deproxy:
@@ -781,47 +823,3 @@ messages_by_response_code = {
           'The gateway server did not receive a timely response'),
     505: ('HTTP Version Not Supported', 'Cannot fulfill request.'),
 }
-
-
-class MessageChain:
-    """
-    An object containing the initial request sent via the make_request method,
-    and all request/response pairs (Handling objects) processed by
-    DeproxyEndpoint objects.
-    """
-    def __init__(self, handler_function):
-        self.sent_request = None
-        self.received_response = None
-        self.handler_function = handler_function
-        self.handlings = []
-        self.orphaned_handlings = []
-        self.lock = threading.Lock()
-
-    def add_handling(self, handling):
-        with self.lock:
-            self.handlings.append(handling)
-
-    def add_orphaned_handling(self, handling):
-        with self.lock:
-            self.orphaned_handlings.append(handling)
-
-    def __repr__(self):
-        return ('MessageChain(handler_function=%r, sent_request=%r, '
-                'handlings=%r, received_response=%r, orphaned_handlings=%r)' %
-                (self.handler_function, self.sent_request, self.handlings,
-                 self.received_response, self.orphaned_handlings))
-
-
-class Request:
-    """A simple HTTP Request, with method, path, headers, and body."""
-    def __init__(self, method, path, headers, body):
-        self.method = method
-        self.path = path
-        self.headers = HeaderCollection(headers)
-        self.body = body
-
-    def __repr__(self):
-        return ('Request(method=%r, path=%r, headers=%r, body=%r)' %
-                (self.method, self.path, self.headers, self.body))
-
-
