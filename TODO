@@ -2,7 +2,7 @@ super-easy assertions on message chains, handlings, requests, and responses - fo
 extract classes for handling http version 0.9, 1.0, and 1.1
 add endpoint parameter to handler functions, so we know who handled the request
 
-fix body reading
+chunked body reading
 binary body
 compression
 
