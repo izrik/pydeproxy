@@ -30,9 +30,7 @@ version_string = deproxy_version + ' ' + python_version
 
 logger = logging.getLogger(__name__)
 
-from .util import (text_from_file,
-                   lines_from_file,
-                   read_body_from_stream)
+from .util import (read_body_from_stream)
 
 
 request_id_header_name = 'Deproxy-Request-ID'
