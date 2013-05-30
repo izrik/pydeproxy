@@ -621,8 +621,10 @@ class DeproxyEndpoint:
             wfile.write("%s: %s\r\n" % (name, value))
         wfile.write("\r\n")
 
-        # Send the response body
-        wfile.write(response.body)
+        if response.body is not None and len(response.body) > 0:
+            logger.debug('Send the response body, len: %s',
+                         len(response.body))
+            wfile.write(response.body)
 
     def date_time_string(self, timestamp=None):
         """Return the current date and time formatted for a message header."""
