@@ -440,6 +440,9 @@ class DeproxyEndpoint:
                     add_default_headers = resp[1]
                 resp = resp[0]
 
+            if (resp.body is not None and len(resp.body) > 0 and
+                    'Content-Length' not in resp.headers):
+                resp.headers.add('Content-Length', len(resp.body))
 
             if add_default_headers:
                 if 'Server' not in resp.headers:
