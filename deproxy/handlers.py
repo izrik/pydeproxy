@@ -3,7 +3,6 @@ import logging
 import time
 
 from .response import Response
-from .request import Request
 
 logger = logging.getLogger(__name__)
 

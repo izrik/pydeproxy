@@ -30,7 +30,6 @@ version_string = deproxy_version + ' ' + python_version
 
 logger = logging.getLogger(__name__)
 
-from .request import Request
 from .response import Response
 from .handlers import default_handler, echo_handler, delay, route
 from .handling import Handling
@@ -736,3 +735,16 @@ class MessageChain:
                 'handlings=%r, received_response=%r, orphaned_handlings=%r)' %
                 (self.handler_function, self.sent_request, self.handlings,
                  self.received_response, self.orphaned_handlings))
+
+
+class Request:
+    """A simple HTTP Request, with method, path, headers, and body."""
+    def __init__(self, method, path, headers, body):
+        self.method = method
+        self.path = path
+        self.headers = HeaderCollection(headers)
+        self.body = body
+
+    def __repr__(self):
+        return ('Request(method=%r, path=%r, headers=%r, body=%r)' %
+                (self.method, self.path, self.headers, self.body))
