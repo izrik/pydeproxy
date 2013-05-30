@@ -614,9 +614,7 @@ class DeproxyEndpoint:
         wfile.write("HTTP/1.1 %d %s\r\n" %
                     (response.code, message))
 
-        headers = dict(response.headers)
-
-        for name, value in headers.iteritems():
+        for name, value in response.headers.iteritems():
             wfile.write("%s: %s\r\n" % (name, value))
         wfile.write("\r\n")
 
