@@ -119,3 +119,24 @@ class HeaderCollection(object):
 
     def viewvalues(self):
         raise NotImplementedError
+
+    @staticmethod
+    def from_stream(rfile):
+        headers = HeaderCollection()
+        line = rfile.readline()
+        while line and line != '\x0d\x0a':
+            name, value = line.split(':', 1)
+            name = name.strip()
+            line = rfile.readline()
+            while line.startswith(' ') or line.startswith('\t'):
+                # Continuation lines - see RFC 2616, section 4.2
+                value += ' ' + line
+                line = rfile.readline()
+            headers.add(name, value.strip())
+        return headers
+
+    def __str__(self):
+        return self.headers.__str__()
+
+    def __repr__(self):
+        return self.headers.__repr__()

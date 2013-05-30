@@ -36,7 +36,9 @@ from .handlers import default_handler, echo_handler, delay, route
 from .handling import Handling
 from .chain import MessageChain
 from .header_collection import HeaderCollection
-from .util import (text_from_file, lines_from_file)
+from .util import (text_from_file,
+                   lines_from_file,
+                   read_body_from_stream)
 
 
 request_id_header_name = 'Deproxy-Request-ID'
@@ -75,6 +77,10 @@ class Deproxy:
         urlparts[0] = ''
         urlparts[1] = ''
         path = urlparse.urlunsplit(urlparts)
+
+        logger.debug('request_body: "{0}"'.format(request_body))
+        if len(request_body) > 0:
+            headers.add('Content-Length', len(request_body))
 
         if add_default_headers:
             if 'Host' not in headers:
@@ -119,9 +125,8 @@ class Deproxy:
         for name, value in request.headers.iteritems():
             lines.append('%s: %s\r\n' % (name, value))
         lines.append('\r\n')
-        lines.append(request.body)
-        lines.append('\r\n')
-        lines.append('\r\n')
+        if request.body is not None and len(request.body) > 0:
+            lines.append(request.body)
 
         #for line in lines:
         #    logger.debug('  ' + line)
@@ -147,11 +152,14 @@ class Deproxy:
         message = ' '.join(words[2:])
 
         logger.debug('Reading headers')
-        response_headers = dict(mimetools.Message(rfile, 0))
+        response_headers = HeaderCollection.from_stream(rfile)
         logger.debug('Headers ok')
 
+        logger.debug('Reading body')
+        body = read_body_from_stream(rfile, response_headers)
+
         logger.debug('Creating Response object')
-        response = Response(code, message, response_headers, rfile)
+        response = Response(code, message, response_headers, body)
 
         logger.debug('Returning Response object')
         return response
@@ -431,17 +439,14 @@ class DeproxyEndpoint:
                     add_default_headers = resp[1]
                 resp = resp[0]
 
+            if (resp.body is not None and len(resp.body) > 0 and
+                    'Content-Length' not in resp.headers):
+                resp.headers.add('Content-Length', len(resp.body))
 
             if add_default_headers:
-                lowers = {}
-
-                for name, value in resp.headers.items():
-                    name_lower = name.lower()
-                    lowers[name_lower] = value
-
-                if 'server' not in lowers:
+                if 'Server' not in resp.headers:
                     resp.headers['Server'] = version_string
-                if 'date' not in lowers:
+                if 'Date' not in resp.headers:
                     resp.headers['Date'] = self.date_time_string()
             else:
                 logger.debug('Don\'t add default response headers.')
@@ -539,17 +544,9 @@ class DeproxyEndpoint:
             return ()
 
         logger.debug('parsing headers')
-        headers = HeaderCollection()
-        line = rfile.readline()
-        while line and line != '\x0d\x0a':
-            name, value = line.split(':', 1)
-            name = name.strip()
-            line = rfile.readline()
-            while line.startswith(' ') or line.startswith('\t'):
-                # Continuation lines - see RFC 2616, section 4.2
-                value += ' ' + line
-                line = rfile.readline()
-            headers.add(name, value.strip())
+        headers = HeaderCollection.from_stream(rfile)
+        for k, v in headers.iteritems():
+            logger.debug('  {0}: "{1}"'.format(k, v))
 
         persistent_connection = False
         if (version == 'HTTP/1.1' and
@@ -557,8 +554,11 @@ class DeproxyEndpoint:
                 headers['Connection'] != 'close'):
             persistent_connection = True
 
+        logger.debug('reading body')
+        body = read_body_from_stream(rfile, headers)
+
         logger.debug('returning')
-        return (Request(method, path, headers, rfile), persistent_connection)
+        return (Request(method, path, headers, body), persistent_connection)
 
     def send_error(self, wfile, code, method, request_version, message=None):
         """Send and log an error reply.
@@ -614,14 +614,14 @@ class DeproxyEndpoint:
         wfile.write("HTTP/1.1 %d %s\r\n" %
                     (response.code, message))
 
-        headers = dict(response.headers)
-
-        for name, value in headers.iteritems():
+        for name, value in response.headers.iteritems():
             wfile.write("%s: %s\r\n" % (name, value))
         wfile.write("\r\n")
 
-        # Send the response body
-        wfile.write(response.body)
+        if response.body is not None and len(response.body) > 0:
+            logger.debug('Send the response body, len: %s',
+                         len(response.body))
+            wfile.write(response.body)
 
     def date_time_string(self, timestamp=None):
         """Return the current date and time formatted for a message header."""
