@@ -30,18 +30,302 @@ version_string = deproxy_version + ' ' + python_version
 
 logger = logging.getLogger(__name__)
 
-from .request import Request
-from .response import Response
-from .handlers import default_handler, echo_handler, delay, route
-from .handling import Handling
-from .chain import MessageChain
-from .header_collection import HeaderCollection
-from .util import (text_from_file,
-                   lines_from_file,
-                   read_body_from_stream)
-
-
 request_id_header_name = 'Deproxy-Request-ID'
+
+
+class HeaderCollection(object):
+    """
+    A collection class for HTTP Headers. This class combines aspects of a list
+    and a dict. Lookup is always case-insenitive. A key can be added multiple
+    times with different values, and all of those values will be kept.
+    """
+
+    def __init__(self, mapping=None, **kwargs):
+        self.headers = []
+        if mapping is not None:
+            for k, v in mapping.iteritems():
+                self.add(k, v)
+        if kwargs is not None:
+            for k, v in kwargs.iteritems():
+                self.add(k, v)
+
+    def __contains__(self, item):
+        item = item.lower()
+        for header in self.headers:
+            if header[0].lower() == item:
+                return True
+        return False
+
+    def __len__(self):
+        return self.headers.__len__()
+
+    def __getitem__(self, key):
+        key = key.lower()
+        for header in self.headers:
+            if header[0].lower() == key:
+                return header[1]
+
+    def __setitem__(self, key, value):
+        lower = key.lower()
+        for i, header in enumerate(self.headers):
+            if header[0].lower() == lower:
+                headers[i] = (header[0], value)
+                return
+        else:
+            self.add(key, value)
+
+    def __delitem__(self, key):
+        self.delete_all(name=key)
+
+    def __iter__(self):
+        return self.iterkeys()
+
+    def add(self, name, value):
+        self.headers.append((name,value,))
+
+    def find_all(self, name):
+        name = name.lower()
+        for header in self.headers:
+            if header[0].lower() == name:
+                yield header[1]
+
+    def delete_all(self, name):
+        lower = key.lower()
+        self.headers = [ header for header in self.headers
+                        if header[0].lower() != lower ]
+
+    def iterkeys(self):
+        for header in self.headers:
+            yield header[0]
+
+    def itervalues(self):
+        for header in self.headers:
+            yield header[1]
+
+    def iteritems(self):
+        for header in self.headers:
+            yield header
+
+    def keys(self):
+        return [key for key in self.iterkeys()]
+
+    def values(self):
+        return [value for value in self.itervalues()]
+
+    def items(self):
+        return self.headers
+
+    def clear(self):
+        raise NotImplementedError
+
+    def copy(self):
+        raise NotImplementedError
+
+    @classmethod
+    def from_keys(cls, seq, value=None):
+        raise NotImplementedError
+
+    def get(self, key, default=None):
+        if key in self:
+            return self[key]
+        return default
+
+    def has_key(self, key):
+        raise NotImplementedError
+
+    def pop(self, key, default=None):
+        raise NotImplementedError
+
+    def popitem(self):
+        raise NotImplementedError
+
+    def setdefault(self, key, default=None):
+        raise NotImplementedError
+
+    def update(self, other=None, **kwargs):
+        raise NotImplementedError
+
+    def viewitems(self):
+        raise NotImplementedError
+
+    def viewkeys(self):
+        raise NotImplementedError
+
+    def viewvalues(self):
+        raise NotImplementedError
+
+    @staticmethod
+    def from_stream(rfile):
+        headers = HeaderCollection()
+        line = rfile.readline()
+        while line and line != '\x0d\x0a':
+            name, value = line.split(':', 1)
+            name = name.strip()
+            line = rfile.readline()
+            while line.startswith(' ') or line.startswith('\t'):
+                # Continuation lines - see RFC 2616, section 4.2
+                value += ' ' + line
+                line = rfile.readline()
+            headers.add(name, value.strip())
+        return headers
+
+    def __str__(self):
+        return self.headers.__str__()
+
+    def __repr__(self):
+        return self.headers.__repr__()
+
+
+class Response:
+    """A simple HTTP Response, with status code, status message, headers, and
+    body."""
+    def __init__(self, code, message, headers, body):
+        self.code = code
+        self.message = message
+        self.headers = HeaderCollection(headers)
+        self.body = body
+
+    def __repr__(self):
+        return ('Response(code=%r, message=%r, headers=%r, body=%r)' %
+                (self.code, self.message, self.headers, self.body))
+
+
+class Request:
+    """A simple HTTP Request, with method, path, headers, and body."""
+    def __init__(self, method, path, headers, body):
+        self.method = method
+        self.path = path
+        self.headers = HeaderCollection(headers)
+        self.body = body
+
+    def __repr__(self):
+        return ('Request(method=%r, path=%r, headers=%r, body=%r)' %
+                (self.method, self.path, self.headers, self.body))
+
+
+def default_handler(request):
+    """
+    Handler function.
+    Returns a 200 OK Response, with no additional headers or response body.
+    """
+    logger.debug('')
+    return Response(200, 'OK', {}, '')
+
+
+def echo_handler(request):
+    """
+    Handler function.
+    Returns a 200 OK Response, with the same headers and body as the request.
+    """
+    logger.debug('')
+    return Response(200, 'OK', request.headers, request.body)
+
+
+def delay(timeout, handler_function):
+    """
+    Factory function.
+    Returns a handler that delays the request for the specified number of
+    seconds, forwards it to the next handler function, and returns that
+    handler function's Response.
+    """
+    def delayer(request):
+        logger.debug('delaying for %i seconds' % timeout)
+        time.sleep(timeout)
+        return handler_function(request)
+
+    delayer.__doc__ = ('Delay for %s seconds, then forward the Request to the '
+                       'next handler' % str(timeout))
+
+    return delayer
+
+
+def route(scheme, host, deproxy):
+    """
+    Factory function.
+    Returns a handler that forwards the request to a specified URL, using
+    either HTTP or HTTPS (regardless of what protocol was used in the initial
+    request), and returning the response from the host so routed to.
+    """
+    logger.debug('')
+
+    def route_to_host(request):
+        logger.debug('request = %s,%s,%s' % (request.method, request.path,
+                                             request.protocol))
+        logger.debug('scheme, host = %s, %s' % (scheme, host))
+        request2 = Request(request.method, request.path, 'HTTP/1.0',
+                           request.headers, request.body)
+        if 'Host' in request2.headers:
+            request2.headers.delete_all('Host')
+        logger.debug('sending request')
+        response = deproxy.send_request(scheme, host, request2)
+        logger.debug('received response')
+        return response, False
+
+    route_to_host.__doc__ = "Route responses to %s using %s" % (host, scheme)
+
+    return route_to_host
+
+
+class Handling:
+    """
+    An object representing a request received by an endpoint and the
+    response it returns.
+    """
+    def __init__(self, endpoint, request, response):
+        self.endpoint = endpoint
+        self.request = request
+        self.response = response
+
+    def __repr__(self):
+        return ('Handling(endpoint=%r, request=%r, response=%r)' %
+                (self.endpoint, self.request, self.response))
+
+
+class MessageChain:
+    """
+    An object containing the initial request sent via the make_request method,
+    and all request/response pairs (Handling objects) processed by
+    DeproxyEndpoint objects.
+    """
+    def __init__(self, handler_function):
+        self.sent_request = None
+        self.received_response = None
+        self.handler_function = handler_function
+        self.handlings = []
+        self.orphaned_handlings = []
+        self.lock = threading.Lock()
+
+    def add_handling(self, handling):
+        with self.lock:
+            self.handlings.append(handling)
+
+    def add_orphaned_handling(self, handling):
+        with self.lock:
+            self.orphaned_handlings.append(handling)
+
+    def __repr__(self):
+        return ('MessageChain(handler_function=%r, sent_request=%r, '
+                'handlings=%r, received_response=%r, orphaned_handlings=%r)' %
+                (self.handler_function, self.sent_request, self.handlings,
+                 self.received_response, self.orphaned_handlings))
+
+
+def read_body_from_stream(stream, headers):
+    if ('Transfer-Encoding' in headers and
+            headers['Transfer-Encoding'] != 'identity'):
+        # 2
+        raise NotImplementedError
+    elif 'Content-Length' in headers:
+        # 3
+        length = int(headers['Content-Length'])
+        body = stream.read(length)
+    elif False:
+        # multipart/byteranges ?
+        raise NotImplementedError
+    else:
+        # there is no body
+        body = None
+    return body
 
 
 class Deproxy:
@@ -638,6 +922,7 @@ class DeproxyEndpoint:
                                                      monthname[month], year,
                                                      hh, mm, ss)
         return s
+
 
 # Table mapping response codes to messages; entries have the
 # form {code: (shortmessage, longmessage)}.
