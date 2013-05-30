@@ -147,7 +147,7 @@ class Deproxy:
         message = ' '.join(words[2:])
 
         logger.debug('Reading headers')
-        response_headers = dict(mimetools.Message(rfile, 0))
+        response_headers = HeaderCollection.from_stream(rfile)
         logger.debug('Headers ok')
 
         logger.debug('Creating Response object')
@@ -539,17 +539,9 @@ class DeproxyEndpoint:
             return ()
 
         logger.debug('parsing headers')
-        headers = HeaderCollection()
-        line = rfile.readline()
-        while line and line != '\x0d\x0a':
-            name, value = line.split(':', 1)
-            name = name.strip()
-            line = rfile.readline()
-            while line.startswith(' ') or line.startswith('\t'):
-                # Continuation lines - see RFC 2616, section 4.2
-                value += ' ' + line
-                line = rfile.readline()
-            headers.add(name, value.strip())
+        headers = HeaderCollection.from_stream(rfile)
+        for k, v in headers.iteritems():
+            logger.debug('  {0}: "{1}"'.format(k, v))
 
         persistent_connection = False
         if (version == 'HTTP/1.1' and
