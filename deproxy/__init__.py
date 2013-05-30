@@ -125,9 +125,8 @@ class Deproxy:
         for name, value in request.headers.iteritems():
             lines.append('%s: %s\r\n' % (name, value))
         lines.append('\r\n')
-        lines.append(request.body)
-        lines.append('\r\n')
-        lines.append('\r\n')
+        if request.body is not None and len(request.body) > 0:
+            lines.append(request.body)
 
         #for line in lines:
         #    logger.debug('  ' + line)
