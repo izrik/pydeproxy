@@ -452,7 +452,7 @@ class Deproxy:
         logger.debug('Returning Response object')
         return response
 
-    def add_endpoint(self, server_address, name=None):
+    def add_endpoint(self, port, name=None, hostname=None):
         """Add a DeproxyEndpoint object to this Deproxy object's list of
         endpoints, giving it the specified server address, and then return the
         endpoint."""
@@ -461,7 +461,8 @@ class Deproxy:
         with self._endpoint_lock:
             if name is None:
                 name = 'Endpoint-%i' % len(self._endpoints)
-            endpoint = DeproxyEndpoint(self, server_address, name)
+            endpoint = DeproxyEndpoint(self, port=port, name=name,
+                                       hostname=hostname)
             self._endpoints.append(endpoint)
             return endpoint
 
@@ -524,10 +525,17 @@ class DeproxyEndpoint:
 
     """A class that acts as a mock HTTP server."""
 
-    def __init__(self, deproxy, server_address, name):
-        logger.debug('server_address=%s, name=%s' % (server_address, name))
+    def __init__(self, deproxy, port, name, hostname=None):
+        logger.debug('port=%s, name=%s, hostname=%s', port, name, hostname)
 
-        self.server_address = server_address
+        if hostname is None:
+            hostname = 'localhost'
+
+        self.deproxy = deproxy
+        self.name = name
+        self.port = port
+        self.hostname = hostname
+
         self.__is_shut_down = threading.Event()
         self.__shutdown_request = False
 
@@ -535,18 +543,12 @@ class DeproxyEndpoint:
                                     self.socket_type)
 
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.socket.bind(self.server_address)
-        self.server_address = self.socket.getsockname()
+        self.socket.bind((hostname, port))
+        self.socket_address = self.socket.getsockname()
 
-        host, port = self.socket.getsockname()[:2]
-        self.server_name = socket.getfqdn(host)
-        self.server_port = port
+        self.fqdn = socket.getfqdn(self.socket_address[0])
 
         self.socket.listen(self.request_queue_size)
-
-        self.deproxy = deproxy
-        self.name = name
-        self.address = server_address
 
         thread_name = 'Thread-%s' % self.name
         self.server_thread = threading.Thread(target=self.serve_forever,
