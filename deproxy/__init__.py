@@ -30,9 +30,6 @@ version_string = deproxy_version + ' ' + python_version
 
 logger = logging.getLogger(__name__)
 
-from .util import (read_body_from_stream)
-
-
 request_id_header_name = 'Deproxy-Request-ID'
 
 
@@ -311,6 +308,24 @@ class MessageChain:
                 'handlings=%r, received_response=%r, orphaned_handlings=%r)' %
                 (self.handler_function, self.sent_request, self.handlings,
                  self.received_response, self.orphaned_handlings))
+
+
+def read_body_from_stream(stream, headers):
+    if ('Transfer-Encoding' in headers and
+            headers['Transfer-Encoding'] != 'identity'):
+        # 2
+        raise NotImplementedError
+    elif 'Content-Length' in headers:
+        # 3
+        length = int(headers['Content-Length'])
+        body = stream.read(length)
+    elif False:
+        # multipart/byteranges ?
+        raise NotImplementedError
+    else:
+        # there is no body
+        body = None
+    return body
 
 
 class Deproxy:
