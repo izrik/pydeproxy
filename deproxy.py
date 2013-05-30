@@ -90,7 +90,7 @@ class HeaderCollection(object):
                 yield header[1]
 
     def delete_all(self, name):
-        lower = key.lower()
+        lower = name.lower()
         self.headers = [header for header in self.headers
                         if header[0].lower() != lower]
 
@@ -249,16 +249,20 @@ def route(scheme, host, deproxy):
     logger.debug('')
 
     def route_to_host(request):
-        logger.debug('request = %s,%s,%s' % (request.method, request.path,
-                                             request.protocol))
         logger.debug('scheme, host = %s, %s' % (scheme, host))
-        request2 = Request(request.method, request.path, 'HTTP/1.0',
-                           request.headers, request.body)
+        logger.debug('request = %s %s' % (request.method, request.path))
+
+        request2 = Request(request.method, request.path, request.headers,
+                           request.body)
+
         if 'Host' in request2.headers:
             request2.headers.delete_all('Host')
+        request2.headers.add('Host', host)
+
         logger.debug('sending request')
         response = deproxy.send_request(scheme, host, request2)
         logger.debug('received response')
+
         return response, False
 
     route_to_host.__doc__ = "Route responses to %s using %s" % (host, scheme)
@@ -718,7 +722,8 @@ class DeproxyEndpoint:
 
             add_default_headers = True
             if type(resp) == tuple:
-                logger.debug('Handler gave back a tuple: {}'.format(resp))
+                logger.debug('Handler gave back a tuple: %s',
+                             (type(resp[0]), resp[1:]))
                 if len(resp) > 1:
                     add_default_headers = resp[1]
                 resp = resp[0]
@@ -895,7 +900,7 @@ class DeproxyEndpoint:
                 message = messages_by_response_code[response.code][0]
             else:
                 message = ''
-        wfile.write("HTTP/1.1 %d %s\r\n" %
+        wfile.write("HTTP/1.1 %s %s\r\n" %
                     (response.code, message))
 
         for name, value in response.headers.iteritems():
