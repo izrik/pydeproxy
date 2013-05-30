@@ -30,7 +30,6 @@ version_string = deproxy_version + ' ' + python_version
 
 logger = logging.getLogger(__name__)
 
-from .handling import Handling
 from .header_collection import HeaderCollection
 from .util import (text_from_file,
                    lines_from_file,
@@ -128,6 +127,21 @@ def route(scheme, host, deproxy):
     route_to_host.__doc__ = "Route responses to %s using %s" % (host, scheme)
 
     return route_to_host
+
+
+class Handling:
+    """
+    An object representing a request received by an endpoint and the
+    response it returns.
+    """
+    def __init__(self, endpoint, request, response):
+        self.endpoint = endpoint
+        self.request = request
+        self.response = response
+
+    def __repr__(self):
+        return ('Handling(endpoint=%r, request=%r, response=%r)' %
+                (self.endpoint, self.request, self.response))
 
 
 class MessageChain:
