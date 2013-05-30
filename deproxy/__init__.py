@@ -36,7 +36,9 @@ from .handlers import default_handler, echo_handler, delay, route
 from .handling import Handling
 from .chain import MessageChain
 from .header_collection import HeaderCollection
-from .util import (text_from_file, lines_from_file)
+from .util import (text_from_file,
+                   lines_from_file,
+                   read_body_from_stream)
 
 
 request_id_header_name = 'Deproxy-Request-ID'
@@ -154,8 +156,11 @@ class Deproxy:
         response_headers = HeaderCollection.from_stream(rfile)
         logger.debug('Headers ok')
 
+        logger.debug('Reading body')
+        body = read_body_from_stream(rfile, response_headers)
+
         logger.debug('Creating Response object')
-        response = Response(code, message, response_headers, rfile)
+        response = Response(code, message, response_headers, body)
 
         logger.debug('Returning Response object')
         return response
@@ -553,8 +558,11 @@ class DeproxyEndpoint:
                 headers['Connection'] != 'close'):
             persistent_connection = True
 
+        logger.debug('reading body')
+        body = read_body_from_stream(rfile, headers)
+
         logger.debug('returning')
-        return (Request(method, path, headers, rfile), persistent_connection)
+        return (Request(method, path, headers, body), persistent_connection)
 
     def send_error(self, wfile, code, method, request_version, message=None):
         """Send and log an error reply.
