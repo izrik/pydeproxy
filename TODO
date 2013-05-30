@@ -14,3 +14,8 @@ clean endpoint failure, e.g. if address already in use
 option on route to be transparent or not (see http rfc)
 specify default handler for a specific endpoint
 
+test https
+test route https
+
+extract client connector -> Conforming vs. Bare
+extract server connector -> Conforming vs. Bare

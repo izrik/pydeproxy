@@ -90,14 +90,15 @@ class TestRoute(unittest.TestCase):
         self.deproxy = deproxy.Deproxy()
         self.end_point = self.deproxy.add_endpoint(('localhost',
                                                     self.deproxy_port))
-        self.handler = deproxy.route('http', 'github.com', self.deproxy)
 
     def tearDown(self):
         self.deproxy.shutdown_all_endpoints()
 
     def test_route(self):
-        mc = self.deproxy.make_request('http://localhost:%i/izrik/deproxy' %
-                                       self.deproxy_port)
+        handler = deproxy.route('http', 'httpbin.org', self.deproxy)
+        mc = self.deproxy.make_request('http://localhost:%i/' %
+                                       self.deproxy_port,
+                                       handler_function=handler)
         self.assertEquals(int(mc.received_response.code), 200)
 
 
