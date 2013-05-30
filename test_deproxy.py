@@ -378,6 +378,7 @@ class TestBodies(unittest.TestCase):
 
         This is the next paragraph.
         """
+
         def custom_handler(request):
             return deproxy.Response(code=200, message='OK', headers=None,
                                     body=body)
@@ -434,6 +435,7 @@ class TestSendingHeaders(unittest.TestCase):
 
     def tearDown(self):
         self.deproxy.shutdown_all_endpoints()
+
 
 def run():
     parser = argparse.ArgumentParser()

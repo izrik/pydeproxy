@@ -81,7 +81,7 @@ class HeaderCollection(object):
         return self.iterkeys()
 
     def add(self, name, value):
-        self.headers.append((name,value,))
+        self.headers.append((name, value,))
 
     def find_all(self, name):
         name = name.lower()
@@ -91,8 +91,8 @@ class HeaderCollection(object):
 
     def delete_all(self, name):
         lower = key.lower()
-        self.headers = [ header for header in self.headers
-                        if header[0].lower() != lower ]
+        self.headers = [header for header in self.headers
+                        if header[0].lower() != lower]
 
     def iterkeys(self):
         for header in self.headers:
