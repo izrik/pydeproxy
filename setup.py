@@ -5,7 +5,7 @@ import deproxy
 setup(
     name='deproxy',
     version=deproxy.__version__,
-    packages=['deproxy', ],
+    py_modules=['deproxy', ],
     license=open('LICENSE').read(),
     long_description=(open('README.rst').read() + '\n\n' +
                       open('HISTORY.rst').read()),
