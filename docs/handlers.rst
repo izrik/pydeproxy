@@ -17,7 +17,7 @@ handlers.
      ('Deproxy-Request-ID', 'e956085c-bd8f-40e8-ac3e-a13d11613f6c')]
 
     >>> d.make_request('http://localhost:9999/',
-            handler=deproxy.echo_handler).received_response.headers
+            default_handler=deproxy.echo_handler).received_response.headers
     [('Deproxy-Request-ID', 'ce999e6a-2111-4bc1-ab4e-22965fb790a9'),
      ('Host', 'localhost:9999'),
      ('Accept', '*/*'),
@@ -60,7 +60,7 @@ returns a ``Response`` object will do.::
             return deproxy.Response(code=606, message='Spoiler', headers={},
                                     body='Snape Kills Dumbledore')
     >>> d.make_request('http://localhost:9999/',
-                    handler=custom_handler).received_response
+                       default_handler=custom_handler).received_response
     Response(code='606', message='Spoiler', headers=[
         ('Content-Length', '22'),
         ('Server', 'Deproxy/0.6 Python/2.7.3'),
@@ -85,7 +85,7 @@ useful for testing how a proxy responds to a misbehaving origin server.::
                                      'and it didn\'t return correct headers!'),
                     False)
     >>> d.make_request('http://localhost:9999/',
-                       handler=custom_handler2).received_response
+                       default_handler=custom_handler2).received_response
     Response(code='503', message='Something went wrong.', headers=[
         ('Content-Length', '72'),
         ('Deproxy-Request-ID', 'dbc2acc9-d5bd-4e68-bd31-41371704dfb6')],

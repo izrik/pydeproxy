@@ -291,10 +291,18 @@ class MessageChain:
     and all request/response pairs (Handling objects) processed by
     DeproxyEndpoint objects.
     """
-    def __init__(self, handler):
+    def __init__(self, default_handler, handlers):
+        """
+        Params:
+        default_handler - An optional handler function to use for requests
+            related to this MessageChain, if not specified elsewhere
+        handlers - A mapping object that maps endpoint references or names of
+            endpoints to handlers
+        """
         self.sent_request = None
         self.received_response = None
-        self.handler = handler
+        self.default_handler = default_handler
+        self.handlers = handlers
         self.handlings = []
         self.orphaned_handlings = []
         self.lock = threading.Lock()
@@ -308,10 +316,12 @@ class MessageChain:
             self.orphaned_handlings.append(handling)
 
     def __repr__(self):
-        return ('MessageChain(handler=%r, sent_request=%r, '
-                'handlings=%r, received_response=%r, orphaned_handlings=%r)' %
-                (self.handler, self.sent_request, self.handlings,
-                 self.received_response, self.orphaned_handlings))
+        return ('MessageChain(default_handler=%r, handlers=%r, '
+                'sent_request=%r, handlings=%r, received_response=%r, '
+                'orphaned_handlings=%r)' %
+                (self.default_handler, self.handlers, self.sent_request,
+                 self.handlings, self.received_response,
+                 self.orphaned_handlings))
 
 
 def read_body_from_stream(stream, headers):
@@ -348,8 +358,29 @@ class Deproxy:
         self.default_handler = default_handler
 
     def make_request(self, url, method='GET', headers=None, request_body='',
-                     handler=None, add_default_headers=True):
-        """Make an HTTP request to the given url and return a MessageChain."""
+                     default_handler=None, handlers=None,
+                     add_default_headers=True):
+        """
+        Make an HTTP request to the given url and return a MessageChain.
+
+        Parameters:
+
+        url - The URL to send the client request to
+        method - The HTTP method to use, default is 'GET'
+        headers - A collection of request headers to send, defaults to None
+        request_body - The body of the request, as a string, defaults to empty
+            string
+        default_handler - An optional handler function to use for requests
+            related to this client request
+        handlers - A mapping object that maps endpoint references or names of
+            endpoints to handlers. If an endpoint or its name is a key within
+            ``handlers``, all requests to that endpoint will be handled by the
+            associated handler
+        add_default_headers - If true, the 'Host', 'Accept', 'Accept-Encoding',
+            and 'User-Agent' headers will be added to the list of headers sent,
+            if not already specified in the ``headers`` parameter above.
+            Otherwise, those headers are not added. Defaults to True.
+        """
         logger.debug('')
 
         if headers is None:
@@ -361,7 +392,8 @@ class Deproxy:
         if request_id_header_name not in headers:
             headers.add(request_id_header_name, request_id)
 
-        message_chain = MessageChain(handler=handler)
+        message_chain = MessageChain(default_handler=default_handler,
+                                     handlers=handlers)
         self.add_message_chain(request_id, message_chain)
 
         urlparts = list(urlparse.urlsplit(url, 'http'))
@@ -746,12 +778,21 @@ class DeproxyEndpoint:
                 logger.debug('The request does not have a request id')
 
             # Handler resolution:
-            #  1. Check the handler specified in the call to ``make_request``
-            #  2. Check the default for this endpoint
-            #  3. Check the default for the parent Deproxy
-            #  4. Fallback to simple_handler
-            if message_chain and message_chain.handler is not None:
-                handler = message_chain.handler
+            #  1. Check the handlers mapping specified to ``make_request``
+            #    a. By reference
+            #    b. By name
+            #  2. Check the default_handler specified to ``make_request``
+            #  3. Check the default for this endpoint
+            #  4. Check the default for the parent Deproxy
+            #  5. Fallback to simple_handler
+            if (message_chain and message_chain.handlers is not None and
+                    self in message_chain.handlers):
+                handler = message_chain.handlers[self]
+            elif (message_chain and message_chain.handlers is not None and
+                  self.name in message_chain.handlers):
+                handler = message_chain.handlers[self.name]
+            elif message_chain and message_chain.default_handler is not None:
+                handler = message_chain.default_handler
             elif self.default_handler is not None:
                 handler = self.default_handler
             elif self.deproxy.default_handler is not None:

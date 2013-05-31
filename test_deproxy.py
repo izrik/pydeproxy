@@ -53,7 +53,7 @@ class TestEchoHandler(unittest.TestCase):
         mc = self.deproxy.make_request('http://localhost:%i/' %
                                        self.deproxy_port, headers=headers,
                                        request_body='this is the body',
-                                       handler=deproxy.echo_handler)
+                                       default_handler=deproxy.echo_handler)
         self.assertEquals(int(mc.received_response.code), 200)
         self.assertIn('x-header', mc.received_response.headers)
         self.assertEquals(mc.received_response.headers['x-header'], '12345')
@@ -73,7 +73,8 @@ class TestDelayHandler(unittest.TestCase):
         handler = deproxy.delay(3, deproxy.simple_handler)
         t1 = time.time()
         mc = self.deproxy.make_request('http://localhost:%i/' %
-                                       self.deproxy_port, handler=handler)
+                                       self.deproxy_port,
+                                       default_handler=handler)
         t2 = time.time()
         self.assertEquals(int(mc.received_response.code), 200)
         self.assertGreaterEqual(t2 - t1, 3)
@@ -92,7 +93,8 @@ class TestRoute(unittest.TestCase):
     def test_route(self):
         handler = deproxy.route('http', 'httpbin.org', self.deproxy)
         mc = self.deproxy.make_request('http://localhost:%i/' %
-                                       self.deproxy_port, handler=handler)
+                                       self.deproxy_port,
+                                       default_handler=handler)
         self.assertEquals(int(mc.received_response.code), 200)
 
 
@@ -112,7 +114,7 @@ class TestCustomHandlers(unittest.TestCase):
                                     body='Snape Kills Dumbledore')
         mc = self.deproxy.make_request('http://localhost:%i/' %
                                        self.deproxy_port,
-                                       handler=custom_handler)
+                                       default_handler=custom_handler)
         self.assertEquals(int(mc.received_response.code), 606)
 
     def handler_method(self, request):
@@ -123,7 +125,7 @@ class TestCustomHandlers(unittest.TestCase):
     def test_custom_handler_method(self):
         mc = self.deproxy.make_request('http://localhost:%i/' %
                                        self.deproxy_port,
-                                       handler=self.handler_method)
+                                       default_handler=self.handler_method)
         self.assertEquals(int(mc.received_response.code), 606)
 
 
@@ -224,7 +226,7 @@ class TestOrphanedHandlings(unittest.TestCase):
         def other_thread():
             mc = self.deproxy.make_request('http://localhost:%i/' %
                                            self.deproxy_port,
-                                           handler=delayed_handler)
+                                           default_handler=delayed_handler)
             helper.mc = mc
 
         t = threading.Thread(target=other_thread)
@@ -342,7 +344,8 @@ class TestDefaultResponseHeaders(unittest.TestCase):
                                  body='Snape Kills Dumbledore'), False)
 
     def test_not_specified(self):
-        mc = self.deproxy.make_request(url=self.url, handler=self.handler1)
+        mc = self.deproxy.make_request(url=self.url,
+                                       default_handler=self.handler1)
         self.assertEqual(len(mc.handlings), 1)
         self.assertIn('server', mc.received_response.headers)
         self.assertIn('date', mc.received_response.headers)
@@ -350,7 +353,8 @@ class TestDefaultResponseHeaders(unittest.TestCase):
         self.assertIn('Date', mc.handlings[0].response.headers)
 
     def test_explicit_on(self):
-        mc = self.deproxy.make_request(url=self.url, handler=self.handler2)
+        mc = self.deproxy.make_request(url=self.url,
+                                       default_handler=self.handler2)
         self.assertEqual(len(mc.handlings), 1)
         self.assertIn('server', mc.received_response.headers)
         self.assertIn('date', mc.received_response.headers)
@@ -358,7 +362,8 @@ class TestDefaultResponseHeaders(unittest.TestCase):
         self.assertIn('Date', mc.handlings[0].response.headers)
 
     def test_explicit_off(self):
-        mc = self.deproxy.make_request(url=self.url, handler=self.handler3)
+        mc = self.deproxy.make_request(url=self.url,
+                                       default_handler=self.handler3)
         self.assertEqual(len(mc.handlings), 1)
         self.assertNotIn('server', mc.received_response.headers)
         self.assertNotIn('date', mc.received_response.headers)
@@ -447,7 +452,8 @@ class TestBodies(unittest.TestCase):
         def custom_handler(request):
             return deproxy.Response(code=200, message='OK', headers=None,
                                     body=body)
-        mc = self.deproxy.make_request(url=self.url, handler=custom_handler)
+        mc = self.deproxy.make_request(url=self.url,
+                                       default_handler=custom_handler)
         self.assertEqual(mc.received_response.body, body)
         self.assertEqual(len(mc.handlings), 1)
         self.assertEqual(mc.handlings[0].response.body, body)
@@ -489,7 +495,8 @@ class TestSendingHeaders(unittest.TestCase):
             return deproxy.Response(code=200, message='OK', headers=headers,
                                     body=None)
 
-        mc = self.deproxy.make_request(url=self.url, handler=custom_handler)
+        mc = self.deproxy.make_request(url=self.url,
+                                       default_handler=custom_handler)
 
         self.assertEqual(len(mc.handlings), 1)
         values = [value for value in
