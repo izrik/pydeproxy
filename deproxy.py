@@ -13,7 +13,7 @@ import inspect
 import logging
 
 
-__version_info__ = (0, 6)
+__version_info__ = (0, 7)
 __version__ = '.'.join(map(str, __version_info__))
 
 
@@ -90,7 +90,7 @@ class HeaderCollection(object):
                 yield header[1]
 
     def delete_all(self, name):
-        lower = key.lower()
+        lower = name.lower()
         self.headers = [header for header in self.headers
                         if header[0].lower() != lower]
 
@@ -179,11 +179,40 @@ class HeaderCollection(object):
 class Response:
     """A simple HTTP Response, with status code, status message, headers, and
     body."""
-    def __init__(self, code, message, headers, body):
-        self.code = code
-        self.message = message
+    def __init__(self, code, message=None, headers=None, body=None):
+        """
+        Parameters:
+
+        code - A numerical status code. This doesn't have to be a valid HTTP
+            status code; 600+ values are acceptable also.
+        message - An optional message to go along with the status code. If
+            None, a suitable default will be provided based on the given status
+            .code If ``code`` is not a valid HTTP status code, then the default
+            is the empty string.
+        headers - An optional collection of name/value pairs, either a mapping
+            object like ``dict``, or a HeaderCollection. Defaults to an empty
+            collection.
+        body - An optional response body. Defaults to the empty string.
+        """
+
+        if message is None:
+            if code in message_by_response_code:
+                message = message_by_response_code[code]
+            elif int(code) in message_by_response_code:
+                message = message_by_response_code[int(code)]
+            else:
+                message = ''
+
+        if headers is None:
+            headers = {}
+
+        if body is None:
+            body = ''
+
+        self.code = str(code)
+        self.message = str(message)
         self.headers = HeaderCollection(headers)
-        self.body = body
+        self.body = str(body)
 
     def __repr__(self):
         return ('Response(code=%r, message=%r, headers=%r, body=%r)' %
@@ -192,18 +221,35 @@ class Response:
 
 class Request:
     """A simple HTTP Request, with method, path, headers, and body."""
-    def __init__(self, method, path, headers, body):
-        self.method = method
-        self.path = path
+    def __init__(self, method, path, headers=None, body=None):
+        """
+        Parameters:
+
+        method - The HTTP method to use, such as 'GET', 'POST', or 'PUT'.
+        path - The relative path of the resource requested.
+        headers - An optional collection of name/value pairs, either a mapping
+            object like ``dict``, or a HeaderCollection. Defaults to an empty
+            collection.
+        body - An optional request body. Defaults to the empty string.
+        """
+
+        if headers is None:
+            headers = {}
+
+        if body is None:
+            body = ''
+
+        self.method = str(method)
+        self.path = str(path)
         self.headers = HeaderCollection(headers)
-        self.body = body
+        self.body = str(body)
 
     def __repr__(self):
         return ('Request(method=%r, path=%r, headers=%r, body=%r)' %
                 (self.method, self.path, self.headers, self.body))
 
 
-def default_handler(request):
+def simple_handler(request):
     """
     Handler function.
     Returns a 200 OK Response, with no additional headers or response body.
@@ -221,17 +267,24 @@ def echo_handler(request):
     return Response(200, 'OK', request.headers, request.body)
 
 
-def delay(timeout, handler_function):
+def delay(timeout, next_handler=simple_handler):
     """
     Factory function.
     Returns a handler that delays the request for the specified number of
     seconds, forwards it to the next handler function, and returns that
     handler function's Response.
+
+    Parameters:
+
+    timeout - The amount of time, in seconds, to delay before passing the
+        request on to the next handler.
+    next_handler - The next handler to process the request after the delay.
+        Defaults to ``simple_handler``.
     """
     def delayer(request):
         logger.debug('delaying for %i seconds' % timeout)
         time.sleep(timeout)
-        return handler_function(request)
+        return next_handler(request)
 
     delayer.__doc__ = ('Delay for %s seconds, then forward the Request to the '
                        'next handler' % str(timeout))
@@ -249,16 +302,20 @@ def route(scheme, host, deproxy):
     logger.debug('')
 
     def route_to_host(request):
-        logger.debug('request = %s,%s,%s' % (request.method, request.path,
-                                             request.protocol))
         logger.debug('scheme, host = %s, %s' % (scheme, host))
-        request2 = Request(request.method, request.path, 'HTTP/1.0',
-                           request.headers, request.body)
+        logger.debug('request = %s %s' % (request.method, request.path))
+
+        request2 = Request(request.method, request.path, request.headers,
+                           request.body)
+
         if 'Host' in request2.headers:
             request2.headers.delete_all('Host')
+        request2.headers.add('Host', host)
+
         logger.debug('sending request')
         response = deproxy.send_request(scheme, host, request2)
         logger.debug('received response')
+
         return response, False
 
     route_to_host.__doc__ = "Route responses to %s using %s" % (host, scheme)
@@ -287,10 +344,18 @@ class MessageChain:
     and all request/response pairs (Handling objects) processed by
     DeproxyEndpoint objects.
     """
-    def __init__(self, handler_function):
+    def __init__(self, default_handler, handlers):
+        """
+        Params:
+        default_handler - An optional handler function to use for requests
+            related to this MessageChain, if not specified elsewhere
+        handlers - A mapping object that maps endpoint references or names of
+            endpoints to handlers
+        """
         self.sent_request = None
         self.received_response = None
-        self.handler_function = handler_function
+        self.default_handler = default_handler
+        self.handlers = handlers
         self.handlings = []
         self.orphaned_handlings = []
         self.lock = threading.Lock()
@@ -304,10 +369,12 @@ class MessageChain:
             self.orphaned_handlings.append(handling)
 
     def __repr__(self):
-        return ('MessageChain(handler_function=%r, sent_request=%r, '
-                'handlings=%r, received_response=%r, orphaned_handlings=%r)' %
-                (self.handler_function, self.sent_request, self.handlings,
-                 self.received_response, self.orphaned_handlings))
+        return ('MessageChain(default_handler=%r, handlers=%r, '
+                'sent_request=%r, handlings=%r, received_response=%r, '
+                'orphaned_handlings=%r)' %
+                (self.default_handler, self.handlers, self.sent_request,
+                 self.handlings, self.received_response,
+                 self.orphaned_handlings))
 
 
 def read_body_from_stream(stream, headers):
@@ -331,16 +398,42 @@ def read_body_from_stream(stream, headers):
 class Deproxy:
     """The main class."""
 
-    def __init__(self):
+    def __init__(self, default_handler=None):
+        """
+        Params:
+        default_handler - An optional handler function to use for requests, if
+            not specified elsewhere
+        """
         self._message_chains_lock = threading.Lock()
         self._message_chains = dict()
         self._endpoint_lock = threading.Lock()
         self._endpoints = []
+        self.default_handler = default_handler
 
     def make_request(self, url, method='GET', headers=None, request_body='',
-                     handler_function=default_handler,
+                     default_handler=None, handlers=None,
                      add_default_headers=True):
-        """Make an HTTP request to the given url and return a MessageChain."""
+        """
+        Make an HTTP request to the given url and return a MessageChain.
+
+        Parameters:
+
+        url - The URL to send the client request to
+        method - The HTTP method to use, default is 'GET'
+        headers - A collection of request headers to send, defaults to None
+        request_body - The body of the request, as a string, defaults to empty
+            string
+        default_handler - An optional handler function to use for requests
+            related to this client request
+        handlers - A mapping object that maps endpoint references or names of
+            endpoints to handlers. If an endpoint or its name is a key within
+            ``handlers``, all requests to that endpoint will be handled by the
+            associated handler
+        add_default_headers - If true, the 'Host', 'Accept', 'Accept-Encoding',
+            and 'User-Agent' headers will be added to the list of headers sent,
+            if not already specified in the ``headers`` parameter above.
+            Otherwise, those headers are not added. Defaults to True.
+        """
         logger.debug('')
 
         if headers is None:
@@ -352,7 +445,8 @@ class Deproxy:
         if request_id_header_name not in headers:
             headers.add(request_id_header_name, request_id)
 
-        message_chain = MessageChain(handler_function)
+        message_chain = MessageChain(default_handler=default_handler,
+                                     handlers=handlers)
         self.add_message_chain(request_id, message_chain)
 
         urlparts = list(urlparse.urlsplit(url, 'http'))
@@ -448,16 +542,30 @@ class Deproxy:
         logger.debug('Returning Response object')
         return response
 
-    def add_endpoint(self, server_address, name=None):
+    def add_endpoint(self, port, name=None, hostname=None,
+                     default_handler=None):
         """Add a DeproxyEndpoint object to this Deproxy object's list of
         endpoints, giving it the specified server address, and then return the
-        endpoint."""
+        endpoint.
+
+        Params:
+        port - The port on which the new endpoint will listen
+        name - An optional descriptive name for the new endpoint. If None, a
+            suitable default will be generated
+        hostname - The ``hostname`` portion of the address tuple passed to
+            ``socket.bind``. If not specified, it defaults to 'localhost'
+        default_handler - An optional handler function to use for requests that
+            the new endpoint will handle, if not specified elsewhere
+        """
+
         logger.debug('')
         endpoint = None
         with self._endpoint_lock:
             if name is None:
                 name = 'Endpoint-%i' % len(self._endpoints)
-            endpoint = DeproxyEndpoint(self, server_address, name)
+            endpoint = DeproxyEndpoint(self, port=port, name=name,
+                                       hostname=hostname,
+                                       default_handler=default_handler)
             self._endpoints.append(endpoint)
             return endpoint
 
@@ -520,10 +628,52 @@ class DeproxyEndpoint:
 
     """A class that acts as a mock HTTP server."""
 
-    def __init__(self, deproxy, server_address, name):
-        logger.debug('server_address=%s, name=%s' % (server_address, name))
+    address_family = socket.AF_INET
+    socket_type = socket.SOCK_STREAM
+    request_queue_size = 5
+    _conn_number = 1
+    _conn_number_lock = threading.Lock()
 
-        self.server_address = server_address
+    # The default request version.  This only affects responses up until
+    # the point where the request line is parsed, so it mainly decides what
+    # the client gets back when sending a malformed request line.
+    # Most web servers default to HTTP 0.9, i.e. don't send a status line.
+    default_request_version = "HTTP/0.9"
+
+    # The version of the HTTP protocol we support.
+    # Set this to HTTP/1.1 to enable automatic keepalive
+    protocol_version = "HTTP/1.1"
+
+    # Disable nagle algoritm for this socket, if True.
+    # Use only when wbufsize != 0, to avoid small packets.
+    disable_nagle_algorithm = False
+
+    def __init__(self, deproxy, port, name, hostname=None,
+                 default_handler=None):
+        """
+        Initialize a DeproxyEndpoint
+
+        Params:
+        deproxy - The parent Deproxy object that contains this endpoint
+        port - The port on which this endpoint will listen
+        name - A descriptive name for this endpoint
+        hostname - The ``hostname`` portion of the address tuple passed to
+            ``socket.bind``. If not specified, it defaults to 'localhost'
+        default_handler - An optional handler function to use for requests that
+            this endpoint services, if not specified elsewhere
+        """
+
+        logger.debug('port=%s, name=%s, hostname=%s', port, name, hostname)
+
+        if hostname is None:
+            hostname = 'localhost'
+
+        self.deproxy = deproxy
+        self.name = name
+        self.port = port
+        self.hostname = hostname
+        self.default_handler = default_handler
+
         self.__is_shut_down = threading.Event()
         self.__shutdown_request = False
 
@@ -531,18 +681,12 @@ class DeproxyEndpoint:
                                     self.socket_type)
 
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.socket.bind(self.server_address)
-        self.server_address = self.socket.getsockname()
+        self.socket.bind((hostname, port))
+        self.socket_address = self.socket.getsockname()
 
-        host, port = self.socket.getsockname()[:2]
-        self.server_name = socket.getfqdn(host)
-        self.server_port = port
+        self.fqdn = socket.getfqdn(self.socket_address[0])
 
         self.socket.listen(self.request_queue_size)
-
-        self.deproxy = deproxy
-        self.name = name
-        self.address = server_address
 
         thread_name = 'Thread-%s' % self.name
         self.server_thread = threading.Thread(target=self.serve_forever,
@@ -574,12 +718,6 @@ class DeproxyEndpoint:
         finally:
             self.shutdown_request(request)
 
-    address_family = socket.AF_INET
-
-    socket_type = socket.SOCK_STREAM
-
-    request_queue_size = 5
-
     def shutdown_request(self, request):
         """Called to shutdown and close an individual request."""
         logger.debug('')
@@ -590,9 +728,6 @@ class DeproxyEndpoint:
         except socket.error:
             pass  # some platforms may raise ENOTCONN here
         request.close()
-
-    _conn_number = 1
-    _conn_number_lock = threading.Lock()
 
     def serve_forever(self, poll_interval=0.5):
         """Handle one request at a time until shutdown.
@@ -664,20 +799,6 @@ class DeproxyEndpoint:
         traceback.print_exc()  # XXX But this goes to stderr!
         print '-' * 40
 
-    # The default request version.  This only affects responses up until
-    # the point where the request line is parsed, so it mainly decides what
-    # the client gets back when sending a malformed request line.
-    # Most web servers default to HTTP 0.9, i.e. don't send a status line.
-    default_request_version = "HTTP/0.9"
-
-    # The version of the HTTP protocol we support.
-    # Set this to HTTP/1.1 to enable automatic keepalive
-    protocol_version = "HTTP/1.1"
-
-    # Disable nagle algoritm for this socket, if True.
-    # Use only when wbufsize != 0, to avoid small packets.
-    disable_nagle_algorithm = False
-
     def handle_one_request(self, rfile, wfile):
         logger.debug('')
         close_connection = True
@@ -700,7 +821,6 @@ class DeproxyEndpoint:
                 close_connection = True
             close_connection = True
 
-            handler_function = default_handler
             message_chain = None
             request_id = incoming_request.headers.get(request_id_header_name)
             if request_id:
@@ -709,16 +829,39 @@ class DeproxyEndpoint:
                 message_chain = self.deproxy.get_message_chain(request_id)
             else:
                 logger.debug('The request does not have a request id')
-            if message_chain:
-                handler_function = message_chain.handler_function
 
-            logger.debug('calling handler_function')
-            resp = handler_function(incoming_request)
-            logger.debug('returned from handler_function')
+            # Handler resolution:
+            #  1. Check the handlers mapping specified to ``make_request``
+            #    a. By reference
+            #    b. By name
+            #  2. Check the default_handler specified to ``make_request``
+            #  3. Check the default for this endpoint
+            #  4. Check the default for the parent Deproxy
+            #  5. Fallback to simple_handler
+            if (message_chain and message_chain.handlers is not None and
+                    self in message_chain.handlers):
+                handler = message_chain.handlers[self]
+            elif (message_chain and message_chain.handlers is not None and
+                  self.name in message_chain.handlers):
+                handler = message_chain.handlers[self.name]
+            elif message_chain and message_chain.default_handler is not None:
+                handler = message_chain.default_handler
+            elif self.default_handler is not None:
+                handler = self.default_handler
+            elif self.deproxy.default_handler is not None:
+                handler = self.deproxy.default_handler
+            else:
+                # last resort
+                handler = simple_handler
+
+            logger.debug('calling handler')
+            resp = handler(incoming_request)
+            logger.debug('returned from handler')
 
             add_default_headers = True
             if type(resp) == tuple:
-                logger.debug('Handler gave back a tuple: {}'.format(resp))
+                logger.debug('Handler gave back a tuple: %s',
+                             (type(resp[0]), resp[1:]))
                 if len(resp) > 1:
                     add_default_headers = resp[1]
                 resp = resp[0]
@@ -895,7 +1038,7 @@ class DeproxyEndpoint:
                 message = messages_by_response_code[response.code][0]
             else:
                 message = ''
-        wfile.write("HTTP/1.1 %d %s\r\n" %
+        wfile.write("HTTP/1.1 %s %s\r\n" %
                     (response.code, message))
 
         for name, value in response.headers.iteritems():

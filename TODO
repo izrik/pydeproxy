@@ -1,16 +1,21 @@
 super-easy assertions on message chains, handlings, requests, and responses - for use by importers
 extract classes for handling http version 0.9, 1.0, and 1.1
-add endpoint parameter to handler functions, so we know who handled the request
+    extract client connector -> Conforming vs. Bare
+    extract server connector -> Conforming vs. Bare
+add endpoint parameter to handler functions, so we know who handled the request ?
+    no use-case for this yet
 
-fix body reading
+chunked body reading
 binary body
 compression
 
-fix add_endpoint signature
-specify separate handlers for each endpoint in make_request
 clean endpoint failure, e.g. if address already in use
     shouldn't get added to _endpoints list
     thread(s) should be shut down
-option on route to be transparent or not (see http rfc)
-specify default handler for a specific endpoint
+option on route to be transparent or not (see http rfc) ?
+    route should use the conforming client connector above
+    not sure which server connector to use
+
+test https
+test route https
 
