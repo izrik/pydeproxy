@@ -221,7 +221,7 @@ def echo_handler(request):
     return Response(200, 'OK', request.headers, request.body)
 
 
-def delay(timeout, handler_function):
+def delay(timeout, next_handler):
     """
     Factory function.
     Returns a handler that delays the request for the specified number of
@@ -231,7 +231,7 @@ def delay(timeout, handler_function):
     def delayer(request):
         logger.debug('delaying for %i seconds' % timeout)
         time.sleep(timeout)
-        return handler_function(request)
+        return next_handler(request)
 
     delayer.__doc__ = ('Delay for %s seconds, then forward the Request to the '
                        'next handler' % str(timeout))
