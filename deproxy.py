@@ -203,7 +203,7 @@ class Request:
                 (self.method, self.path, self.headers, self.body))
 
 
-def default_handler(request):
+def simple_handler(request):
     """
     Handler function.
     Returns a 200 OK Response, with no additional headers or response body.
@@ -342,7 +342,7 @@ class Deproxy:
         self._endpoints = []
 
     def make_request(self, url, method='GET', headers=None, request_body='',
-                     handler_function=default_handler,
+                     handler_function=None,
                      add_default_headers=True):
         """Make an HTTP request to the given url and return a MessageChain."""
         logger.debug('')
@@ -538,6 +538,27 @@ class DeproxyEndpoint:
 
     """A class that acts as a mock HTTP server."""
 
+    address_family = socket.AF_INET
+    socket_type = socket.SOCK_STREAM
+    request_queue_size = 5
+    _conn_number = 1
+    _conn_number_lock = threading.Lock()
+
+    # The default request version.  This only affects responses up until
+    # the point where the request line is parsed, so it mainly decides what
+    # the client gets back when sending a malformed request line.
+    # Most web servers default to HTTP 0.9, i.e. don't send a status line.
+    default_request_version = "HTTP/0.9"
+
+    # The version of the HTTP protocol we support.
+    # Set this to HTTP/1.1 to enable automatic keepalive
+    protocol_version = "HTTP/1.1"
+
+    # Disable nagle algoritm for this socket, if True.
+    # Use only when wbufsize != 0, to avoid small packets.
+    disable_nagle_algorithm = False
+
+
     def __init__(self, deproxy, port, name, hostname=None,
                  default_handler=None):
         """
@@ -608,12 +629,6 @@ class DeproxyEndpoint:
         finally:
             self.shutdown_request(request)
 
-    address_family = socket.AF_INET
-
-    socket_type = socket.SOCK_STREAM
-
-    request_queue_size = 5
-
     def shutdown_request(self, request):
         """Called to shutdown and close an individual request."""
         logger.debug('')
@@ -624,9 +639,6 @@ class DeproxyEndpoint:
         except socket.error:
             pass  # some platforms may raise ENOTCONN here
         request.close()
-
-    _conn_number = 1
-    _conn_number_lock = threading.Lock()
 
     def serve_forever(self, poll_interval=0.5):
         """Handle one request at a time until shutdown.
@@ -698,20 +710,6 @@ class DeproxyEndpoint:
         traceback.print_exc()  # XXX But this goes to stderr!
         print '-' * 40
 
-    # The default request version.  This only affects responses up until
-    # the point where the request line is parsed, so it mainly decides what
-    # the client gets back when sending a malformed request line.
-    # Most web servers default to HTTP 0.9, i.e. don't send a status line.
-    default_request_version = "HTTP/0.9"
-
-    # The version of the HTTP protocol we support.
-    # Set this to HTTP/1.1 to enable automatic keepalive
-    protocol_version = "HTTP/1.1"
-
-    # Disable nagle algoritm for this socket, if True.
-    # Use only when wbufsize != 0, to avoid small packets.
-    disable_nagle_algorithm = False
-
     def handle_one_request(self, rfile, wfile):
         logger.debug('')
         close_connection = True
@@ -734,7 +732,6 @@ class DeproxyEndpoint:
                 close_connection = True
             close_connection = True
 
-            handler_function = default_handler
             message_chain = None
             request_id = incoming_request.headers.get(request_id_header_name)
             if request_id:
@@ -743,8 +740,11 @@ class DeproxyEndpoint:
                 message_chain = self.deproxy.get_message_chain(request_id)
             else:
                 logger.debug('The request does not have a request id')
-            if message_chain:
+
+            if message_chain and message_chain.handler_function is not None:
                 handler_function = message_chain.handler_function
+            else:
+                handler_function = simple_handler
 
             logger.debug('calling handler_function')
             resp = handler_function(incoming_request)

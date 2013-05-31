@@ -70,7 +70,7 @@ class TestDelayHandler(unittest.TestCase):
         self.deproxy.shutdown_all_endpoints()
 
     def test_delay_handler(self):
-        handler = deproxy.delay(3, deproxy.default_handler)
+        handler = deproxy.delay(3, deproxy.simple_handler)
         t1 = time.time()
         mc = self.deproxy.make_request('http://localhost:%i/' %
                                        self.deproxy_port,
@@ -140,7 +140,7 @@ class TestOrphanedHandlings(unittest.TestCase):
         self.deproxy.shutdown_all_endpoints()
 
     def test_orphaned_handling(self):
-        delayed_handler = deproxy.delay(2, deproxy.default_handler)
+        delayed_handler = deproxy.delay(2, deproxy.simple_handler)
         self.long_running_mc = None
 
         class Helper:
