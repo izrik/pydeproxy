@@ -3,7 +3,7 @@
 History
 -------
 
-0.7 (in progress)
+0.7 (2013-05-31)
 ++++++++++++++++
 
 - Changed the signature of ``add_endpoint`` so that the user can just pass a
