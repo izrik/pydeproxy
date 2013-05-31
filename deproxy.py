@@ -335,11 +335,17 @@ def read_body_from_stream(stream, headers):
 class Deproxy:
     """The main class."""
 
-    def __init__(self):
+    def __init__(self, default_handler=None):
+        """
+        Params:
+        default_handler - An optional handler function to use for requests, if
+            not specified elsewhere
+        """
         self._message_chains_lock = threading.Lock()
         self._message_chains = dict()
         self._endpoint_lock = threading.Lock()
         self._endpoints = []
+        self.default_handler = default_handler
 
     def make_request(self, url, method='GET', headers=None, request_body='',
                      handler_function=None,
@@ -558,7 +564,6 @@ class DeproxyEndpoint:
     # Use only when wbufsize != 0, to avoid small packets.
     disable_nagle_algorithm = False
 
-
     def __init__(self, deproxy, port, name, hostname=None,
                  default_handler=None):
         """
@@ -744,11 +749,14 @@ class DeproxyEndpoint:
             # Handler resolution:
             #  1. Check the handler specified in the call to ``make_request``
             #  2. Check the default for this endpoint
-            #  3. Fallback to simple_handler
+            #  3. Check the default for the parent Deproxy
+            #  4. Fallback to simple_handler
             if message_chain and message_chain.handler_function is not None:
                 handler_function = message_chain.handler_function
             elif self.default_handler is not None:
                 handler_function = self.default_handler
+            elif self.deproxy.default_handler is not None:
+                handler_function = self.deproxy.default_handler
             else:
                 # last resort
                 handler_function = simple_handler
