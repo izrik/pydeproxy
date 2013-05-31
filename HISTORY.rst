@@ -3,6 +3,11 @@
 History
 -------
 
+0.7 (in progress)
+++++++++++++++++
+
+- Changed the signature of ``add_endpoint`` so that you can just pass a port, instead of an awkward tuple.
+
 0.6 (2013-05-30)
 ++++++++++++++++
 

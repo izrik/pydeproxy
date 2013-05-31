@@ -19,7 +19,7 @@ Here's a code example of a unit test that tests the fictional the_proxy module::
 
         def setUp(self):
             self.deproxy = deproxy.Deproxy()
-            self.end_point = self.deproxy.add_endpoint(('localhost', 9999))
+            self.end_point = self.deproxy.add_endpoint(port=9999)
 
             # Set up the proxy to listen on port 8080, forwarding requests to
             # localhost:9999, to add an "X-Request" header to requests and an

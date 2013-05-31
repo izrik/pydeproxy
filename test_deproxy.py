@@ -28,8 +28,7 @@ class TestDefaultHandler(unittest.TestCase):
     def setUp(self):
         self.deproxy_port = get_next_deproxy_port()
         self.deproxy = deproxy.Deproxy()
-        self.end_point = self.deproxy.add_endpoint(('localhost',
-                                                    self.deproxy_port))
+        self.end_point = self.deproxy.add_endpoint(self.deproxy_port)
 
     def tearDown(self):
         self.deproxy.shutdown_all_endpoints()
@@ -44,8 +43,7 @@ class TestEchoHandler(unittest.TestCase):
     def setUp(self):
         self.deproxy_port = get_next_deproxy_port()
         self.deproxy = deproxy.Deproxy()
-        self.end_point = self.deproxy.add_endpoint(('localhost',
-                                                    self.deproxy_port))
+        self.end_point = self.deproxy.add_endpoint(self.deproxy_port)
 
     def tearDown(self):
         self.deproxy.shutdown_all_endpoints()
@@ -66,8 +64,7 @@ class TestDelayHandler(unittest.TestCase):
     def setUp(self):
         self.deproxy_port = get_next_deproxy_port()
         self.deproxy = deproxy.Deproxy()
-        self.end_point = self.deproxy.add_endpoint(('localhost',
-                                                    self.deproxy_port))
+        self.end_point = self.deproxy.add_endpoint(self.deproxy_port)
 
     def tearDown(self):
         self.deproxy.shutdown_all_endpoints()
@@ -88,16 +85,16 @@ class TestRoute(unittest.TestCase):
     def setUp(self):
         self.deproxy_port = get_next_deproxy_port()
         self.deproxy = deproxy.Deproxy()
-        self.end_point = self.deproxy.add_endpoint(('localhost',
-                                                    self.deproxy_port))
-        self.handler = deproxy.route('http', 'github.com', self.deproxy)
+        self.end_point = self.deproxy.add_endpoint(self.deproxy_port)
 
     def tearDown(self):
         self.deproxy.shutdown_all_endpoints()
 
     def test_route(self):
-        mc = self.deproxy.make_request('http://localhost:%i/izrik/deproxy' %
-                                       self.deproxy_port)
+        handler = deproxy.route('http', 'httpbin.org', self.deproxy)
+        mc = self.deproxy.make_request('http://localhost:%i/' %
+                                       self.deproxy_port,
+                                       handler_function=handler)
         self.assertEquals(int(mc.received_response.code), 200)
 
 
@@ -105,8 +102,7 @@ class TestCustomHandlers(unittest.TestCase):
     def setUp(self):
         self.deproxy_port = get_next_deproxy_port()
         self.deproxy = deproxy.Deproxy()
-        self.end_point = self.deproxy.add_endpoint(('localhost',
-                                                    self.deproxy_port))
+        self.end_point = self.deproxy.add_endpoint(self.deproxy_port)
 
     def tearDown(self):
         self.deproxy.shutdown_all_endpoints()
@@ -137,8 +133,7 @@ class TestOrphanedHandlings(unittest.TestCase):
     def setUp(self):
         self.deproxy_port = get_next_deproxy_port()
         self.deproxy = deproxy.Deproxy()
-        self.end_point = self.deproxy.add_endpoint(('localhost',
-                                                    self.deproxy_port))
+        self.end_point = self.deproxy.add_endpoint(self.deproxy_port)
         self.other_client = deproxy.Deproxy()
 
     def tearDown(self):
@@ -175,13 +170,13 @@ class TestEndpointShutdown(unittest.TestCase):
         self.deproxy = deproxy.Deproxy()
 
     def test_shutdown(self):
-        e1 = self.deproxy.add_endpoint(('localhost', self.deproxy_port1))
-        e2 = self.deproxy.add_endpoint(('localhost', self.deproxy_port2))
+        e1 = self.deproxy.add_endpoint(self.deproxy_port1)
+        e2 = self.deproxy.add_endpoint(self.deproxy_port2)
 
         e1.shutdown()
 
         try:
-            e3 = self.deproxy.add_endpoint(('localhost', self.deproxy_port1))
+            e3 = self.deproxy.add_endpoint(self.deproxy_port1)
         except socket.error as e:
             self.fail('Address already in use: %s' % e)
 
@@ -193,18 +188,18 @@ class TestShutdownAllEndpoints(unittest.TestCase):
         self.deproxy = deproxy.Deproxy()
 
     def test_shutdown(self):
-        e1 = self.deproxy.add_endpoint(('localhost', self.deproxy_port1))
-        e2 = self.deproxy.add_endpoint(('localhost', self.deproxy_port2))
+        e1 = self.deproxy.add_endpoint(self.deproxy_port1)
+        e2 = self.deproxy.add_endpoint(self.deproxy_port2)
 
         self.deproxy.shutdown_all_endpoints()
 
         try:
-            e3 = self.deproxy.add_endpoint(('localhost', self.deproxy_port1))
+            e3 = self.deproxy.add_endpoint(self.deproxy_port1)
         except socket.error as e:
             self.fail('add_endpoint through an exception: %s' % e)
 
         try:
-            e4 = self.deproxy.add_endpoint(('localhost', self.deproxy_port2))
+            e4 = self.deproxy.add_endpoint(self.deproxy_port2)
         except socket.error as e:
             self.fail('add_endpoint through an exception: %s' % e)
 
@@ -213,7 +208,7 @@ class TestAutomaticRequestHeaders(unittest.TestCase):
     def setUp(self):
         self.port = get_next_deproxy_port()
         self.deproxy = deproxy.Deproxy()
-        self.endpoint = self.deproxy.add_endpoint(('localhost', self.port))
+        self.endpoint = self.deproxy.add_endpoint(self.port)
         self.url = 'http://localhost:{}/'.format(self.port)
 
     def tearDown(self):
@@ -250,7 +245,7 @@ class TestDefaultResponseHeaders(unittest.TestCase):
     def setUpClass(self):
         self.port = get_next_deproxy_port()
         self.deproxy = deproxy.Deproxy()
-        self.endpoint = self.deproxy.add_endpoint(('localhost', self.port))
+        self.endpoint = self.deproxy.add_endpoint(self.port)
         self.url = 'http://localhost:{}/'.format(self.port)
 
     @classmethod
@@ -359,7 +354,7 @@ class TestBodies(unittest.TestCase):
     def setUp(self):
         self.deproxy = deproxy.Deproxy()
         self.port = get_next_deproxy_port()
-        self.deproxy.add_endpoint(('localhost', self.port))
+        self.deproxy.add_endpoint(self.port)
         self.url = 'http://localhost:{0}/'.format(self.port)
 
     def test_request_body(self):
@@ -404,7 +399,7 @@ class TestSendingHeaders(unittest.TestCase):
     def setUp(self):
         self.deproxy = deproxy.Deproxy()
         self.port = get_next_deproxy_port()
-        self.deproxy.add_endpoint(('localhost', self.port))
+        self.deproxy.add_endpoint(self.port)
         self.url = 'http://localhost:{0}/'.format(self.port)
 
     def test_send_duplicate_request_headers(self):

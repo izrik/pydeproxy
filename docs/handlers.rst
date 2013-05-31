@@ -10,21 +10,21 @@ handlers.
 ::
 
     >>> d = deproxy.Deproxy()
-    >>> e = d.add_endpoint(('localhost', 9999))
+    >>> e = d.add_endpoint(port=9999)
     >>> d.make_request('http://localhost:9999/').received_response.headers
-    {'date': 'Fri, 05 Apr 2013 21:56:22 GMT',
-     'deproxy-request-id': 'f9eb8462-c7b8-4a23-aeca-78ea5244755e',
-     'server': 'Deproxy/0.1.5 Python/2.7.3'}
+    [('Server', 'Deproxy/0.6 Python/2.7.3'),
+     ('Date', 'Fri, 31 May 2013 13:41:02 GMT'),
+     ('Deproxy-Request-ID', 'e956085c-bd8f-40e8-ac3e-a13d11613f6c')]
 
     >>> d.make_request('http://localhost:9999/',
             handler_function=deproxy.echo_handler).received_response.headers
-    {'host': 'localhost:9999',
-     'accept-encoding': 'identity, deflate, compress, gzip',
-     'date': 'Fri, 05 Apr 2013 21:56:29 GMT',
-     'deproxy-request-id': 'f9be28a9-4e58-404b-9333-300752ecc235',
-     'user-agent': 'Deproxy/0.1.5 Python/2.7.3',
-     'accept': '*/*',
-     'server': 'Deproxy/0.1.5 Python/2.7.3'}
+    [('Deproxy-Request-ID', 'ce999e6a-2111-4bc1-ab4e-22965fb790a9'),
+     ('Host', 'localhost:9999'),
+     ('Accept', '*/*'),
+     ('Accept-Encoding', 'identity, deflate, compress, gzip'),
+     ('User-Agent', 'Deproxy/0.6 Python/2.7.3'),
+     ('Server', 'Deproxy/0.6 Python/2.7.3'),
+     ('Date', 'Fri, 31 May 2013 13:41:43 GMT')]
 
 Built-in Handlers
 =================
@@ -61,14 +61,12 @@ and returns a Response object will do.::
                                     body='Snape Kills Dumbledore')
     >>> d.make_request('http://localhost:9999/',
                     handler_function=custom_handler).received_response
-    Response(code='606', message='Spoiler', headers={
-        'date': 'Fri, 05 Apr 2013 22:04:48 GMT',
-        'deproxy-request-id': '324b75f5-887e-4200-a476-775cffad321d',
-        'server': 'Deproxy/0.1.5 Python/2.7.3'},
-        body=<socket._fileobject object at 0x100468dd0>)
-
-* The response body is not correctly converted into a string. This is a known
-defect.
+    Response(code='606', message='Spoiler', headers=[
+        ('Content-Length', '22'),
+        ('Server', 'Deproxy/0.6 Python/2.7.3'),
+        ('Date', 'Fri, 31 May 2013 14:03:46 GMT'),
+        ('Deproxy-Request-ID', 'c854be6f-d0ec-4232-88b4-d0389f309ffa')],
+        body='Snape Kills Dumbledore')
 
 Default Response Headers
 ========================
@@ -81,13 +79,14 @@ response headers should or should not be added, respectively. This can be
 useful for testing how a proxy responds to a misbehaving origin server.::
 
     >>> def custom_handler2(request):
-        return (deproxy.Response(code=503, message='Something went wrong.',
-                                 headers={},
-                                 body='Something went wrong in the server and '
-                                 'it didn\'t return correct headers!'),
-                False)
+            return (deproxy.Response(code=503, message='Something went wrong.',
+                                     headers={},
+                                     body='Something went wrong in the server '
+                                     'and it didn\'t return correct headers!'),
+                    False)
     >>> d.make_request('http://localhost:9999/',
                        handler_function=custom_handler2).received_response
-    Response(code='503', message='Something went wrong.', headers={
-    'deproxy-request-id': '6f714468-dcd5-4d97-bff2-1b4ba6a8877b'},
-    body=<socket._fileobject object at 0x1004a46d0>)
+    Response(code='503', message='Something went wrong.', headers=[
+        ('Content-Length', '72'),
+        ('Deproxy-Request-ID', 'dbc2acc9-d5bd-4e68-bd31-41371704dfb6')],
+        body="Something went wrong in the server and it didn't return correct headers!")
