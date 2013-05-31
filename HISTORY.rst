@@ -6,16 +6,29 @@ History
 0.7 (in progress)
 ++++++++++++++++
 
-- Changed the signature of ``add_endpoint`` so that you can just pass a port, instead of an awkward tuple.
-- Specify default handler for a Deproxy via the ``default_handler`` parameter to ``__init__``.
-- Specify default handler for a specific endpoint via the ``default_handler`` parameter to ``add_endpoint``.
-- Specify separate handlers for each endpoint via the ``handlers`` parameter to ``make_request``.
-- Renamed the ``make_request`` method's ``handler_function`` parameter to ``default_handler``.
-- Renamed the ``MessageChain`` class's ``handler`` to ``default_handler``
-- Renamed the built-in ``default_handler`` function to ``simple_handler`` to avoid confusion
-- Renamed the ``delay`` function's ``handler_function`` parameter to ``next_handler`` and made it optional, defaulting to ``simple_handler``
-- Stringified parameters to ``Request`` and ``Response``. They are always converted to strings now. Also made some of them optional.
-- Fixes to ``route``.
+- Changed the signature of ``add_endpoint`` so that the user can just pass a
+  port, instead of an ugly ``('localhost', port)`` tuple, when creating an
+  endpoint.
+- Added the ability for the user to specify a default handler for a Deproxy via
+  the ``default_handler`` parameter to ``__init__``.
+- Added the ability for the user to specify a default handler for a specific
+  endpoint via the ``default_handler`` parameter to ``add_endpoint``.
+- Added the ability for the user to specify separate handlers for each endpoint
+  via the ``handlers`` parameter to ``make_request``.
+- Renamed the ``make_request`` method's ``handler_function`` parameter to
+  ``default_handler``.
+- Renamed the ``MessageChain`` class's ``handler`` to ``default_handler``, to
+  avoid confusion with the new ``handlers`` attribute.
+- Renamed the built-in ``default_handler`` function to ``simple_handler`` to
+  avoid confusion.
+- Renamed the ``delay`` function's ``handler_function`` parameter to
+  ``next_handler`` and made it optional, defaulting to ``simple_handler``.
+- Stringified parameters to ``Request`` and ``Response``. They are always
+  converted to strings now. Also made some of them optional.
+- Fixes to ``route``. It's still not 100%, though.
+
+There are several breaking changes to method signatures. Upgrading existing
+tests to use v0.7 will be tedious, but not difficult.
 
 0.6 (2013-05-30)
 ++++++++++++++++
