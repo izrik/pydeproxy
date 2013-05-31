@@ -452,17 +452,30 @@ class Deproxy:
         logger.debug('Returning Response object')
         return response
 
-    def add_endpoint(self, port, name=None, hostname=None):
+    def add_endpoint(self, port, name=None, hostname=None,
+                     default_handler=None):
         """Add a DeproxyEndpoint object to this Deproxy object's list of
         endpoints, giving it the specified server address, and then return the
-        endpoint."""
+        endpoint.
+
+        Params:
+        port - The port on which the new endpoint will listen
+        name - An optional descriptive name for the new endpoint. If None, a
+            suitable default will be generated
+        hostname - The ``hostname`` portion of the address tuple passed to
+            ``socket.bind``. If not specified, it defaults to 'localhost'
+        default_handler - An optional handler function to use for requests that
+            the new endpoint will handle, if not specified elsewhere
+        """
+
         logger.debug('')
         endpoint = None
         with self._endpoint_lock:
             if name is None:
                 name = 'Endpoint-%i' % len(self._endpoints)
             endpoint = DeproxyEndpoint(self, port=port, name=name,
-                                       hostname=hostname)
+                                       hostname=hostname,
+                                       default_handler=default_handler)
             self._endpoints.append(endpoint)
             return endpoint
 
@@ -525,7 +538,21 @@ class DeproxyEndpoint:
 
     """A class that acts as a mock HTTP server."""
 
-    def __init__(self, deproxy, port, name, hostname=None):
+    def __init__(self, deproxy, port, name, hostname=None,
+                 default_handler=None):
+        """
+        Initialize a DeproxyEndpoint
+
+        Params:
+        deproxy - The parent Deproxy object that contains this endpoint
+        port - The port on which this endpoint will listen
+        name - A descriptive name for this endpoint
+        hostname - The ``hostname`` portion of the address tuple passed to
+            ``socket.bind``. If not specified, it defaults to 'localhost'
+        default_handler - An optional handler function to use for requests that
+            this endpoint services, if not specified elsewhere
+        """
+
         logger.debug('port=%s, name=%s, hostname=%s', port, name, hostname)
 
         if hostname is None:
@@ -535,6 +562,7 @@ class DeproxyEndpoint:
         self.name = name
         self.port = port
         self.hostname = hostname
+        self.default_handler = default_handler
 
         self.__is_shut_down = threading.Event()
         self.__shutdown_request = False
