@@ -741,9 +741,16 @@ class DeproxyEndpoint:
             else:
                 logger.debug('The request does not have a request id')
 
+            # Handler resolution:
+            #  1. Check the handler specified in the call to ``make_request``
+            #  2. Check the default for this endpoint
+            #  3. Fallback to simple_handler
             if message_chain and message_chain.handler_function is not None:
                 handler_function = message_chain.handler_function
+            elif self.default_handler is not None:
+                handler_function = self.default_handler
             else:
+                # last resort
                 handler_function = simple_handler
 
             logger.debug('calling handler_function')
