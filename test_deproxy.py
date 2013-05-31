@@ -129,6 +129,28 @@ class TestCustomHandlers(unittest.TestCase):
         self.assertEquals(int(mc.received_response.code), 606)
 
 
+class TestEndpointDefaultHandler(unittest.TestCase):
+    def setUp(self):
+        self.port = get_next_deproxy_port()
+        self.deproxy = deproxy.Deproxy()
+
+    def test_endpoint_default_handler(self):
+        def custom_handler(request):
+            return deproxy.Response(code='601', message='Custom', headers={},
+                                    body=None)
+        self.deproxy.add_endpoint(port=self.port,
+                                  default_handler=custom_handler)
+        url = 'http://localhost:{0}/'.format(self.port)
+        mc = self.deproxy.make_request(url=url)
+
+        self.assertEqual(len(mc.handlings), 1)
+        self.assertEqual(mc.handlings[0].response.code, '601')
+        self.assertEqual(mc.received_response.code, '601')
+
+    def tearDown(self):
+        self.deproxy.shutdown_all_endpoints()
+
+
 class TestOrphanedHandlings(unittest.TestCase):
     def setUp(self):
         self.deproxy_port = get_next_deproxy_port()
