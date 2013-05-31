@@ -267,12 +267,19 @@ def echo_handler(request):
     return Response(200, 'OK', request.headers, request.body)
 
 
-def delay(timeout, next_handler):
+def delay(timeout, next_handler=simple_handler):
     """
     Factory function.
     Returns a handler that delays the request for the specified number of
     seconds, forwards it to the next handler function, and returns that
     handler function's Response.
+
+    Parameters:
+
+    timeout - The amount of time, in seconds, to delay before passing the
+        request on to the next handler.
+    next_handler - The next handler to process the request after the delay.
+        Defaults to ``simple_handler``.
     """
     def delayer(request):
         logger.debug('delaying for %i seconds' % timeout)
