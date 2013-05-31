@@ -291,10 +291,10 @@ class MessageChain:
     and all request/response pairs (Handling objects) processed by
     DeproxyEndpoint objects.
     """
-    def __init__(self, handler_function):
+    def __init__(self, handler):
         self.sent_request = None
         self.received_response = None
-        self.handler_function = handler_function
+        self.handler = handler
         self.handlings = []
         self.orphaned_handlings = []
         self.lock = threading.Lock()
@@ -308,9 +308,9 @@ class MessageChain:
             self.orphaned_handlings.append(handling)
 
     def __repr__(self):
-        return ('MessageChain(handler_function=%r, sent_request=%r, '
+        return ('MessageChain(handler=%r, sent_request=%r, '
                 'handlings=%r, received_response=%r, orphaned_handlings=%r)' %
-                (self.handler_function, self.sent_request, self.handlings,
+                (self.handler, self.sent_request, self.handlings,
                  self.received_response, self.orphaned_handlings))
 
 
@@ -348,8 +348,7 @@ class Deproxy:
         self.default_handler = default_handler
 
     def make_request(self, url, method='GET', headers=None, request_body='',
-                     handler_function=None,
-                     add_default_headers=True):
+                     handler=None, add_default_headers=True):
         """Make an HTTP request to the given url and return a MessageChain."""
         logger.debug('')
 
@@ -362,7 +361,7 @@ class Deproxy:
         if request_id_header_name not in headers:
             headers.add(request_id_header_name, request_id)
 
-        message_chain = MessageChain(handler_function)
+        message_chain = MessageChain(handler=handler)
         self.add_message_chain(request_id, message_chain)
 
         urlparts = list(urlparse.urlsplit(url, 'http'))
@@ -751,19 +750,19 @@ class DeproxyEndpoint:
             #  2. Check the default for this endpoint
             #  3. Check the default for the parent Deproxy
             #  4. Fallback to simple_handler
-            if message_chain and message_chain.handler_function is not None:
-                handler_function = message_chain.handler_function
+            if message_chain and message_chain.handler is not None:
+                handler = message_chain.handler
             elif self.default_handler is not None:
-                handler_function = self.default_handler
+                handler = self.default_handler
             elif self.deproxy.default_handler is not None:
-                handler_function = self.deproxy.default_handler
+                handler = self.deproxy.default_handler
             else:
                 # last resort
-                handler_function = simple_handler
+                handler = simple_handler
 
-            logger.debug('calling handler_function')
-            resp = handler_function(incoming_request)
-            logger.debug('returned from handler_function')
+            logger.debug('calling handler')
+            resp = handler(incoming_request)
+            logger.debug('returned from handler')
 
             add_default_headers = True
             if type(resp) == tuple:

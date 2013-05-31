@@ -3,8 +3,8 @@
 ==========
 
 Handlers are the things that turn requests into responses. A given call to
-make_request can take a `handler_function` argument that will be called for
-each request that reaches an endpoint. Deproxy includes a number of built-in
+make_request can take a ``handler`` argument that will be called for each
+request that reaches an endpoint. Deproxy includes a number of built-in
 handlers for some of the most common use cases. Also, you can define your own
 handlers.
 ::
@@ -17,7 +17,7 @@ handlers.
      ('Deproxy-Request-ID', 'e956085c-bd8f-40e8-ac3e-a13d11613f6c')]
 
     >>> d.make_request('http://localhost:9999/',
-            handler_function=deproxy.echo_handler).received_response.headers
+            handler=deproxy.echo_handler).received_response.headers
     [('Deproxy-Request-ID', 'ce999e6a-2111-4bc1-ab4e-22965fb790a9'),
      ('Host', 'localhost:9999'),
      ('Accept', '*/*'),
@@ -38,7 +38,7 @@ request id headers.
 Returns a response with a 200 status code, and copies the request body and
 request headers.
 
-- delay(timeout, handler_function)
+- delay(timeout, next_handler)
 This is actually a factory function that returns a handler. Give it a time-out
 in seconds and a second handler function, and it will return a handler that
 will wait the desired amount of time before calling the second handler.
@@ -53,14 +53,14 @@ response returned from the specified host.
 Custom Handlers
 ===============
 
-You can define your own handlers and pass them as the handler_function
-parameter to make_request. Any callable that accepts a single Request parameter
-and returns a Response object will do.::
+You can define your own handlers and pass them as the ``handler`` parameter to
+make_request. Any callable that accepts a single ``request`` parameter and
+returns a ``Response`` object will do.::
     >>> def custom_handler(request):
             return deproxy.Response(code=606, message='Spoiler', headers={},
                                     body='Snape Kills Dumbledore')
     >>> d.make_request('http://localhost:9999/',
-                    handler_function=custom_handler).received_response
+                    handler=custom_handler).received_response
     Response(code='606', message='Spoiler', headers=[
         ('Content-Length', '22'),
         ('Server', 'Deproxy/0.6 Python/2.7.3'),
@@ -85,7 +85,7 @@ useful for testing how a proxy responds to a misbehaving origin server.::
                                      'and it didn\'t return correct headers!'),
                     False)
     >>> d.make_request('http://localhost:9999/',
-                       handler_function=custom_handler2).received_response
+                       handler=custom_handler2).received_response
     Response(code='503', message='Something went wrong.', headers=[
         ('Content-Length', '72'),
         ('Deproxy-Request-ID', 'dbc2acc9-d5bd-4e68-bd31-41371704dfb6')],
