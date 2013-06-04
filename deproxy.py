@@ -497,8 +497,8 @@ class Deproxy:
         before attempting to connect.  If no *timeout* is supplied, the
         global default timeout setting returned by :func:`getdefaulttimeout`
         is used.  If *source_address* is set it must be a tuple of (host, port)
-        for the socket to bind as a source address before making the connection.
-        An host of '' or port 0 tells the OS to use the default.
+        for the socket to bind as a source address before making the
+        connection. A host of '' or port 0 tells the OS to use the default.
         """
 
         host, port = address
@@ -528,7 +528,6 @@ class Deproxy:
             raise err
         else:
             raise error("getaddrinfo returns an empty list")
-
 
     def send_request(self, scheme, host, request):
         """Send the given request to the host and return the Response."""
