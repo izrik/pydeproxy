@@ -11,6 +11,7 @@ import mimetools
 import urlparse
 import inspect
 import logging
+import ssl
 
 
 __version_info__ = (0, 7)
@@ -482,6 +483,53 @@ class Deproxy:
 
         return message_chain
 
+    def create_connection(self, address,
+                          timeout=socket._GLOBAL_DEFAULT_TIMEOUT,
+                          source_address=None, use_ssl=False):
+        """
+        Copied from the socket module and modified for ssl support.
+
+        Connect to *address* and return the socket object.
+
+        Convenience function.  Connect to *address* (a 2-tuple ``(host,
+        port)``) and return the socket object.  Passing the optional
+        *timeout* parameter will set the timeout on the socket instance
+        before attempting to connect.  If no *timeout* is supplied, the
+        global default timeout setting returned by :func:`getdefaulttimeout`
+        is used.  If *source_address* is set it must be a tuple of (host, port)
+        for the socket to bind as a source address before making the connection.
+        An host of '' or port 0 tells the OS to use the default.
+        """
+
+        host, port = address
+        err = None
+        for res in socket.getaddrinfo(host, port, 0, socket.SOCK_STREAM):
+            af, socktype, proto, canonname, sa = res
+            sock = None
+            try:
+                sock = socket.socket(af, socktype, proto)
+
+                if use_ssl:
+                    sock = ssl.wrap_socket(sock)
+
+                if timeout is not socket._GLOBAL_DEFAULT_TIMEOUT:
+                    sock.settimeout(timeout)
+                if source_address:
+                    sock.bind(source_address)
+                sock.connect(sa)
+                return sock
+
+            except error as _:
+                err = _
+                if sock is not None:
+                    sock.close()
+
+        if err is not None:
+            raise err
+        else:
+            raise error("getaddrinfo returns an empty list")
+
+
     def send_request(self, scheme, host, request):
         """Send the given request to the host and return the Response."""
         logger.debug('sending request (scheme="%s", host="%s")' %
@@ -511,7 +559,13 @@ class Deproxy:
 
         logger.debug('Creating connection (hostname="%s", port="%s")' %
                      (hostname, str(port)))
-        s = socket.create_connection((hostname, port))
+
+        address = (hostname, port)
+        if scheme == 'https':
+            s = self.create_connection(address, use_ssl=True)
+        else:
+            s = self.create_connection(address)
+
         s.send(''.join(lines))
 
         rfile = s.makefile('rb', -1)
