@@ -314,7 +314,7 @@ def route(scheme, host, deproxy):
         request2.headers.add('Host', host)
 
         logger.debug('sending request')
-        response = deproxy.send_request(scheme, host, request2)
+        response = deproxy.default_client.send_request(scheme, host, request2)
         logger.debug('received response')
 
         return response, False
@@ -412,94 +412,6 @@ class BareClientConnector:
 
     def __init__(self):
         pass
-
-
-class Deproxy:
-    """The main class."""
-
-    def __init__(self, default_handler=None):
-        """
-        Params:
-        default_handler - An optional handler function to use for requests, if
-            not specified elsewhere
-        """
-        self._message_chains_lock = threading.Lock()
-        self._message_chains = dict()
-        self._endpoint_lock = threading.Lock()
-        self._endpoints = []
-        self.default_handler = default_handler
-
-    def make_request(self, url, method='GET', headers=None, request_body='',
-                     default_handler=None, handlers=None,
-                     add_default_headers=True):
-        """
-        Make an HTTP request to the given url and return a MessageChain.
-
-        Parameters:
-
-        url - The URL to send the client request to
-        method - The HTTP method to use, default is 'GET'
-        headers - A collection of request headers to send, defaults to None
-        request_body - The body of the request, as a string, defaults to empty
-            string
-        default_handler - An optional handler function to use for requests
-            related to this client request
-        handlers - A mapping object that maps endpoint references or names of
-            endpoints to handlers. If an endpoint or its name is a key within
-            ``handlers``, all requests to that endpoint will be handled by the
-            associated handler
-        add_default_headers - If true, the 'Host', 'Accept', 'Accept-Encoding',
-            and 'User-Agent' headers will be added to the list of headers sent,
-            if not already specified in the ``headers`` parameter above.
-            Otherwise, those headers are not added. Defaults to True.
-        """
-        logger.debug('')
-
-        if headers is None:
-            headers = HeaderCollection()
-        else:
-            headers = HeaderCollection(headers)
-
-        request_id = str(uuid.uuid4())
-        if request_id_header_name not in headers:
-            headers.add(request_id_header_name, request_id)
-
-        message_chain = MessageChain(default_handler=default_handler,
-                                     handlers=handlers)
-        self.add_message_chain(request_id, message_chain)
-
-        urlparts = list(urlparse.urlsplit(url, 'http'))
-        scheme = urlparts[0]
-        host = urlparts[1]
-        urlparts[0] = ''
-        urlparts[1] = ''
-        path = urlparse.urlunsplit(urlparts)
-
-        logger.debug('request_body: "{0}"'.format(request_body))
-        if len(request_body) > 0:
-            headers.add('Content-Length', len(request_body))
-
-        if add_default_headers:
-            if 'Host' not in headers:
-                headers.add('Host', host)
-            if 'Accept' not in headers:
-                headers.add('Accept', '*/*')
-            if 'Accept-Encoding' not in headers:
-                headers.add('Accept-Encoding',
-                            'identity, deflate, compress, gzip')
-            if 'User-Agent' not in headers:
-                headers.add('User-Agent', version_string)
-
-        request = Request(method, path, headers, request_body)
-
-        response = self.send_request(scheme, host, request)
-
-        self.remove_message_chain(request_id)
-
-        message_chain.sent_request = request
-        message_chain.received_response = response
-
-        return message_chain
 
     def create_ssl_connection(self, address,
                               timeout=socket._GLOBAL_DEFAULT_TIMEOUT,
@@ -613,6 +525,95 @@ class Deproxy:
 
         logger.debug('Returning Response object')
         return response
+
+
+class Deproxy:
+    """The main class."""
+
+    def __init__(self, default_handler=None):
+        """
+        Params:
+        default_handler - An optional handler function to use for requests, if
+            not specified elsewhere
+        """
+        self._message_chains_lock = threading.Lock()
+        self._message_chains = dict()
+        self._endpoint_lock = threading.Lock()
+        self._endpoints = []
+        self.default_handler = default_handler
+        self.default_client = BareClientConnector()
+
+    def make_request(self, url, method='GET', headers=None, request_body='',
+                     default_handler=None, handlers=None,
+                     add_default_headers=True):
+        """
+        Make an HTTP request to the given url and return a MessageChain.
+
+        Parameters:
+
+        url - The URL to send the client request to
+        method - The HTTP method to use, default is 'GET'
+        headers - A collection of request headers to send, defaults to None
+        request_body - The body of the request, as a string, defaults to empty
+            string
+        default_handler - An optional handler function to use for requests
+            related to this client request
+        handlers - A mapping object that maps endpoint references or names of
+            endpoints to handlers. If an endpoint or its name is a key within
+            ``handlers``, all requests to that endpoint will be handled by the
+            associated handler
+        add_default_headers - If true, the 'Host', 'Accept', 'Accept-Encoding',
+            and 'User-Agent' headers will be added to the list of headers sent,
+            if not already specified in the ``headers`` parameter above.
+            Otherwise, those headers are not added. Defaults to True.
+        """
+        logger.debug('')
+
+        if headers is None:
+            headers = HeaderCollection()
+        else:
+            headers = HeaderCollection(headers)
+
+        request_id = str(uuid.uuid4())
+        if request_id_header_name not in headers:
+            headers.add(request_id_header_name, request_id)
+
+        message_chain = MessageChain(default_handler=default_handler,
+                                     handlers=handlers)
+        self.add_message_chain(request_id, message_chain)
+
+        urlparts = list(urlparse.urlsplit(url, 'http'))
+        scheme = urlparts[0]
+        host = urlparts[1]
+        urlparts[0] = ''
+        urlparts[1] = ''
+        path = urlparse.urlunsplit(urlparts)
+
+        logger.debug('request_body: "{0}"'.format(request_body))
+        if len(request_body) > 0:
+            headers.add('Content-Length', len(request_body))
+
+        if add_default_headers:
+            if 'Host' not in headers:
+                headers.add('Host', host)
+            if 'Accept' not in headers:
+                headers.add('Accept', '*/*')
+            if 'Accept-Encoding' not in headers:
+                headers.add('Accept-Encoding',
+                            'identity, deflate, compress, gzip')
+            if 'User-Agent' not in headers:
+                headers.add('User-Agent', version_string)
+
+        request = Request(method, path, headers, request_body)
+
+        response = self.default_client.send_request(scheme, host, request)
+
+        self.remove_message_chain(request_id)
+
+        message_chain.sent_request = request
+        message_chain.received_response = response
+
+        return message_chain
 
     def add_endpoint(self, port, name=None, hostname=None,
                      default_handler=None):
