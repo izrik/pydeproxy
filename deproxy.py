@@ -398,6 +398,22 @@ def read_body_from_stream(stream, headers):
     return body
 
 
+class BareClientConnector:
+    """
+    A connector is an object that takes care of writing requests to the socket
+    and reading responses from it. Custom connectors can be defined to
+    implement custom behavior - simulating a buggy client that doesn't send a
+    Host header, for example.
+
+    This connector makes absolutely no modifications to outgoing requests.
+    Other than that, it is intended to conform as closely as possible to
+    RFC 2616.
+    """
+
+    def __init__(self):
+        pass
+
+
 class Deproxy:
     """The main class."""
 
