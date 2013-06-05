@@ -3,6 +3,12 @@
 History
 -------
 
+0.8 (in progress)
+++++++++++++++++
+
+- Rough preliminary support for using ssl for requests.
+- Add "Content-Length: 0" header if no body is present on the request.
+
 0.7 (2013-05-31)
 ++++++++++++++++
 
