@@ -14,7 +14,7 @@ import logging
 import ssl
 
 
-__version_info__ = (0, 7)
+__version_info__ = (0, 8)
 __version__ = '.'.join(map(str, __version_info__))
 
 
@@ -485,9 +485,9 @@ class Deproxy:
 
         return message_chain
 
-    def create_connection(self, address,
-                          timeout=socket._GLOBAL_DEFAULT_TIMEOUT,
-                          source_address=None, use_ssl=False):
+    def create_ssl_connection(self, address,
+                              timeout=socket._GLOBAL_DEFAULT_TIMEOUT,
+                              source_address=None):
         """
         Copied from the socket module and modified for ssl support.
 
@@ -511,8 +511,7 @@ class Deproxy:
             try:
                 sock = socket.socket(af, socktype, proto)
 
-                if use_ssl:
-                    sock = ssl.wrap_socket(sock)
+                sock = ssl.wrap_socket(sock)
 
                 if timeout is not socket._GLOBAL_DEFAULT_TIMEOUT:
                     sock.settimeout(timeout)
@@ -521,7 +520,7 @@ class Deproxy:
                 sock.connect(sa)
                 return sock
 
-            except error as _:
+            except socket.error as _:
                 err = _
                 if sock is not None:
                     sock.close()
@@ -563,9 +562,9 @@ class Deproxy:
 
         address = (hostname, port)
         if scheme == 'https':
-            s = self.create_connection(address, use_ssl=True)
+            s = self.create_ssl_connection(address)
         else:
-            s = self.create_connection(address)
+            s = socket.create_connection(address)
 
         s.send(''.join(lines))
 
