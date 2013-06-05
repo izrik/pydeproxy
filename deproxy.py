@@ -199,7 +199,7 @@ class Response:
         if message is None:
             if code in message_by_response_code:
                 message = message_by_response_code[code]
-            elif int(code) in message_by_response_code:
+            elif int(code) in messages_by_response_code:
                 message = message_by_response_code[int(code)]
             else:
                 message = ''
