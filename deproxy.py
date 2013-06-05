@@ -11,9 +11,10 @@ import mimetools
 import urlparse
 import inspect
 import logging
+import ssl
 
 
-__version_info__ = (0, 7)
+__version_info__ = (0, 8)
 __version__ = '.'.join(map(str, __version_info__))
 
 
@@ -381,6 +382,7 @@ def read_body_from_stream(stream, headers):
     if ('Transfer-Encoding' in headers and
             headers['Transfer-Encoding'] != 'identity'):
         # 2
+        logger.debug('NotImplementedError - Transfer-Encoding != identity')
         raise NotImplementedError
     elif 'Content-Length' in headers:
         # 3
@@ -388,6 +390,7 @@ def read_body_from_stream(stream, headers):
         body = stream.read(length)
     elif False:
         # multipart/byteranges ?
+        logger.debug('NotImplementedError - multipart/byteranges')
         raise NotImplementedError
     else:
         # there is no body
@@ -482,6 +485,51 @@ class Deproxy:
 
         return message_chain
 
+    def create_ssl_connection(self, address,
+                              timeout=socket._GLOBAL_DEFAULT_TIMEOUT,
+                              source_address=None):
+        """
+        Copied from the socket module and modified for ssl support.
+
+        Connect to *address* and return the socket object.
+
+        Convenience function.  Connect to *address* (a 2-tuple ``(host,
+        port)``) and return the socket object.  Passing the optional
+        *timeout* parameter will set the timeout on the socket instance
+        before attempting to connect.  If no *timeout* is supplied, the
+        global default timeout setting returned by :func:`getdefaulttimeout`
+        is used.  If *source_address* is set it must be a tuple of (host, port)
+        for the socket to bind as a source address before making the
+        connection. A host of '' or port 0 tells the OS to use the default.
+        """
+
+        host, port = address
+        err = None
+        for res in socket.getaddrinfo(host, port, 0, socket.SOCK_STREAM):
+            af, socktype, proto, canonname, sa = res
+            sock = None
+            try:
+                sock = socket.socket(af, socktype, proto)
+
+                sock = ssl.wrap_socket(sock)
+
+                if timeout is not socket._GLOBAL_DEFAULT_TIMEOUT:
+                    sock.settimeout(timeout)
+                if source_address:
+                    sock.bind(source_address)
+                sock.connect(sa)
+                return sock
+
+            except socket.error as _:
+                err = _
+                if sock is not None:
+                    sock.close()
+
+        if err is not None:
+            raise err
+        else:
+            raise error("getaddrinfo returns an empty list")
+
     def send_request(self, scheme, host, request):
         """Send the given request to the host and return the Response."""
         logger.debug('sending request (scheme="%s", host="%s")' %
@@ -511,7 +559,13 @@ class Deproxy:
 
         logger.debug('Creating connection (hostname="%s", port="%s")' %
                      (hostname, str(port)))
-        s = socket.create_connection((hostname, port))
+
+        address = (hostname, port)
+        if scheme == 'https':
+            s = self.create_ssl_connection(address)
+        else:
+            s = socket.create_connection(address)
+
         s.send(''.join(lines))
 
         rfile = s.makefile('rb', -1)
@@ -532,6 +586,8 @@ class Deproxy:
         logger.debug('Reading headers')
         response_headers = HeaderCollection.from_stream(rfile)
         logger.debug('Headers ok')
+        for k,v in response_headers.iteritems():
+            logger.debug('  %s: %s', k, v)
 
         logger.debug('Reading body')
         body = read_body_from_stream(rfile, response_headers)
@@ -866,7 +922,7 @@ class DeproxyEndpoint:
                     add_default_headers = resp[1]
                 resp = resp[0]
 
-            if (resp.body is not None and len(resp.body) > 0 and
+            if (resp.body is not None and
                     'Content-Length' not in resp.headers):
                 resp.headers.add('Content-Length', len(resp.body))
 
