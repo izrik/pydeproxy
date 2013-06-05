@@ -521,7 +521,7 @@ class Deproxy:
                 sock.connect(sa)
                 return sock
 
-            except error as _:
+            except socket.error as _:
                 err = _
                 if sock is not None:
                     sock.close()
