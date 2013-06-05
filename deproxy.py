@@ -382,6 +382,7 @@ def read_body_from_stream(stream, headers):
     if ('Transfer-Encoding' in headers and
             headers['Transfer-Encoding'] != 'identity'):
         # 2
+        logger.debug('NotImplementedError - Transfer-Encoding != identity')
         raise NotImplementedError
     elif 'Content-Length' in headers:
         # 3
@@ -389,6 +390,7 @@ def read_body_from_stream(stream, headers):
         body = stream.read(length)
     elif False:
         # multipart/byteranges ?
+        logger.debug('NotImplementedError - multipart/byteranges')
         raise NotImplementedError
     else:
         # there is no body
@@ -585,6 +587,8 @@ class Deproxy:
         logger.debug('Reading headers')
         response_headers = HeaderCollection.from_stream(rfile)
         logger.debug('Headers ok')
+        for k,v in response_headers.iteritems():
+            logger.debug('  %s: %s', k, v)
 
         logger.debug('Reading body')
         body = read_body_from_stream(rfile, response_headers)
