@@ -462,9 +462,19 @@ class TestBodies(unittest.TestCase):
     def test_request_body_chunked(self):
         self.fail()
 
-    @unittest.expectedFailure
     def test_response_body_chunked(self):
-        self.fail()
+        chunked_body = "4\r\nWiki\r\n5\r\npedia\r\n0\r\n\r\n"
+        body = "Wikipedia"
+
+        def custom_handler(request):
+            return deproxy.Response(code=200, message='OK',
+                                    headers={'transfer-encoding': 'chunked'},
+                                    body=chunked_body)
+        mc = self.deproxy.make_request(url=self.url,
+                                       default_handler=custom_handler)
+        self.assertEqual(mc.received_response.body, body)
+        self.assertEqual(len(mc.handlings), 1)
+        self.assertEqual(mc.handlings[0].response.body, chunked_body)
 
     def tearDown(self):
         self.deproxy.shutdown_all_endpoints()

@@ -380,10 +380,24 @@ class MessageChain:
 
 def read_body_from_stream(stream, headers):
     if ('Transfer-Encoding' in headers and
-            headers['Transfer-Encoding'] != 'identity'):
+            headers['Transfer-Encoding'] not in ['identity', 'chunked']):
         # 2
-        logger.debug('NotImplementedError - Transfer-Encoding != identity')
+        logger.debug('NotImplementedError - Transfer-Encoding not in "identity", "chunked"')
         raise NotImplementedError
+    elif 'Transfer-Encoding' in headers and headers['Transfer-Encoding'] == 'chunked':
+        body = ""
+        while True:
+            line = stream.readline()
+            i = line.find(';')  # ignore extenstions
+            if i >= 0:
+                line = line[:i]
+            chunk_length = int(line, 16)
+            if chunk_length == 0:
+                break
+
+            body = body + stream.read(chunk_length)
+            stream.read(2)  # remove CRLF
+
     elif 'Content-Length' in headers:
         # 3
         length = int(headers['Content-Length'])
