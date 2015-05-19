@@ -10,7 +10,7 @@ setup(
     long_description=(open('README.rst').read() + '\n\n' +
                       open('HISTORY.rst').read()),
     author='izrik',
-    author_email='izrik@yahoo.com',
+    author_email='izrik@izrik.com',
     url='https://github.com/izrik/deproxy',
     description='Python library for testing HTTP proxies.',
     classifiers=(

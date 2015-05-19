@@ -3,7 +3,15 @@
 History
 -------
 
-0.8 (in progress)
+0.10 (in progress)
+++++++++++++++++
+
+0.9 (2015-05-19)
+++++++++++++++++
+
+- Read message bodies encoded with the "chunked" transfer-encoding.
+
+0.8 (2013-06-05)
 ++++++++++++++++
 
 - Rough preliminary support for using ssl for requests.
