@@ -6,6 +6,8 @@ History
 0.10 (in progress)
 ++++++++++++++++
 
+- Preliminary HTTPS support.
+
 0.9 (2015-05-19)
 ++++++++++++++++
 
