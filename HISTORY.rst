@@ -3,7 +3,10 @@
 History
 -------
 
-0.10 (in progress)
+0.11 (in progress)
+++++++++++++++++
+
+0.10 (2015-05-26)
 ++++++++++++++++
 
 - Preliminary HTTPS support.
