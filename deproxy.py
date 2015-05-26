@@ -613,7 +613,8 @@ class Deproxy:
         return response
 
     def add_endpoint(self, port, name=None, hostname=None,
-                     default_handler=None):
+                     default_handler=None, ssl_enable=False,
+                     ssl_certs=None):
         """Add a DeproxyEndpoint object to this Deproxy object's list of
         endpoints, giving it the specified server address, and then return the
         endpoint.
@@ -626,6 +627,10 @@ class Deproxy:
             ``socket.bind``. If not specified, it defaults to 'localhost'
         default_handler - An optional handler function to use for requests that
             the new endpoint will handle, if not specified elsewhere
+        ssl_enable - Boolean flag to enable to https support for endpoint
+        ssl_certs - If SSL is enabled, should contain keyword arguments as dict
+            to be passed to ssl.wrap_socket, should include ``certfile`` and
+            ``keyfile``
         """
 
         logger.debug('')
@@ -635,7 +640,9 @@ class Deproxy:
                 name = 'Endpoint-%i' % len(self._endpoints)
             endpoint = DeproxyEndpoint(self, port=port, name=name,
                                        hostname=hostname,
-                                       default_handler=default_handler)
+                                       default_handler=default_handler,
+                                       ssl_enable=ssl_enable,
+                                       ssl_certs=ssl_certs)
             self._endpoints.append(endpoint)
             return endpoint
 
@@ -719,7 +726,7 @@ class DeproxyEndpoint:
     disable_nagle_algorithm = False
 
     def __init__(self, deproxy, port, name, hostname=None,
-                 default_handler=None):
+                 default_handler=None, ssl_enable=False, ssl_certs=None):
         """
         Initialize a DeproxyEndpoint
 
@@ -731,6 +738,10 @@ class DeproxyEndpoint:
             ``socket.bind``. If not specified, it defaults to 'localhost'
         default_handler - An optional handler function to use for requests that
             this endpoint services, if not specified elsewhere
+        ssl_enable - Boolean flag to enable to https support for endpoint
+        ssl_certs - If SSL is enabled, should contain keyword arguments as dict
+            to be passed to ssl.wrap_socket, should include ``certfile`` and
+            ``keyfile``
         """
 
         logger.debug('port=%s, name=%s, hostname=%s', port, name, hostname)
@@ -743,6 +754,8 @@ class DeproxyEndpoint:
         self.port = port
         self.hostname = hostname
         self.default_handler = default_handler
+        self.ssl_enable = ssl_enable
+        self.ssl_certs = ssl_certs
 
         self.__is_shut_down = threading.Event()
         self.__shutdown_request = False
@@ -771,6 +784,12 @@ class DeproxyEndpoint:
             if self.disable_nagle_algorithm:
                 connection.setsockopt(socket.IPPROTO_TCP,
                                       socket.TCP_NODELAY, True)
+            if self.ssl_enable:
+                connection = ssl.wrap_socket(
+                    connection,
+                    server_side=True,
+                    ssl_version=ssl.PROTOCOL_TLSv1,
+                    **self.ssl_certs)
             rfile = connection.makefile('rb', -1)
             wfile = connection.makefile('wb', 0)
 
